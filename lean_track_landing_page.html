@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="de" data-theme="system">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>LeanTrack – Track it. Improve it.</title>
+  <meta name="description" content="LeanTrack ist eine minimalistische, offene Fitness‑PWA: Gewicht, Kalorien, Wasser, Protein – offline, ohne Account.">
+  <meta name="theme-color" content="#0B0F19" id="meta-theme-color">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <style>
+    :root{
+      --surface:#0B0F19; --card:#111827; --stroke:#1F2937; --text:#E5E7EB; --muted:#9CA3AF; --accent:#3B82F6; --success:#22C55E; --shadow:0 10px 30px rgba(0,0,0,.25);
+      --surface-light:#FFFFFF; --card-light:#FFFFFF; --stroke-light:#E5E7EB; --text-light:#111827; --muted-light:#6B7280;
+    }
+    [data-theme="dark"]{ --bg:var(--surface); --panel:var(--card); --border:var(--stroke); --fg:var(--text); --fg-muted:var(--muted); }
+    [data-theme="light"]{ --bg:var(--surface-light); --panel:var(--card-light); --border:var(--stroke-light); --fg:var(--text-light); --fg-muted:var(--muted-light); }
+    [data-theme="system"]{ color-scheme: light dark; }
+    @media (prefers-color-scheme: light){ [data-theme="system"]{ --bg:var(--surface-light); --panel:var(--card-light); --border:var(--stroke-light); --fg:var(--text-light); --fg-muted:var(--muted-light); } }
+    @media (prefers-color-scheme: dark){ [data-theme="system"]{ --bg:var(--surface); --panel:var(--card); --border:var(--stroke); --fg:var(--text); --fg-muted:var(--muted); } }
+
+    *{ box-sizing:border-box }
+    html,body{ height:100% }
+    body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Roboto,Inter,Arial,sans-serif; background:var(--bg); color:var(--fg); }
+    a{ color:inherit; text-decoration:none }
+    .container{ max-width:1100px; margin-inline:auto; padding:24px; }
+    header{ position:sticky; top:0; backdrop-filter:saturate(180%) blur(8px); background:color-mix(in oklab, var(--bg), transparent 30%); border-bottom:1px solid var(--border); z-index:10 }
+    nav{ display:flex; align-items:center; justify-content:space-between; gap:16px; }
+    .brand{ display:flex; align-items:center; gap:12px; font-weight:600; font-size:18px }
+    .brand .logo{ width:32px; height:32px; border-radius:9px; box-shadow:var(--shadow) }
+    .actions{ display:flex; align-items:center; gap:8px }
+    .btn{ min-height:44px; padding:10px 16px; border-radius:14px; border:1px solid var(--border); background:var(--panel); color:var(--fg); cursor:pointer }
+    .btn.primary{ background:var(--accent); color:white; border-color:transparent }
+    .btn.ghost{ background:transparent }
+
+    .hero{ padding:56px 0 24px; display:grid; grid-template-columns:1.1fr 0.9fr; gap:24px; align-items:center }
+    @media (max-width:900px){ .hero{ grid-template-columns:1fr; padding-top:32px } }
+    .hero h1{ font-size:42px; line-height:1.1; margin:0 0 12px }
+    .hero p{ color:var(--fg-muted); margin:0 0 20px; font-size:18px }
+    .pill{ display:inline-flex; gap:8px; align-items:center; border:1px solid var(--border); background:var(--panel); padding:8px 12px; border-radius:999px; color:var(--fg-muted); font-size:14px }
+    .hero-card{ background:var(--panel); border:1px solid var(--border); border-radius:28px; padding:20px; box-shadow:var(--shadow) }
+
+    .grid{ display:grid; gap:18px }
+    .features{ grid-template-columns:repeat(3,1fr); }
+    @media (max-width:900px){ .features{ grid-template-columns:1fr } }
+    .card{ background:var(--panel); border:1px solid var(--border); border-radius:24px; padding:20px }
+    .card h3{ margin:0 0 8px; font-size:18px }
+    .muted{ color:var(--fg-muted) }
+
+    .kpis{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px }
+    .kpi{ background:var(--panel); border:1px solid var(--border); border-radius:20px; padding:16px; text-align:center }
+    .kpi .val{ font-size:28px; font-weight:700 }
+
+    .heatmap{ display:grid; grid-template-columns:repeat(7,1fr); gap:6px }
+    .cell{ height:22px; border-radius:6px; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:11px }
+
+    .section{ padding:40px 0 }
+    footer{ margin-top:40px; border-top:1px solid var(--border); padding:24px 0; color:var(--fg-muted); font-size:13px }
+
+    .tabs{ position:fixed; left:0; right:0; bottom:0; padding:8px clamp(12px,3vw,24px); background:color-mix(in oklab,var(--bg),transparent 5%); border-top:1px solid var(--border); display:grid; grid-template-columns:repeat(3,1fr); gap:8px; backdrop-filter:blur(6px) }
+    .tabs button{ height:48px; border-radius:14px; border:1px solid var(--border); background:var(--panel); color:var(--fg) }
+
+    .theme-switch{ border-radius:12px; overflow:hidden; border:1px solid var(--border) }
+    .theme-switch button{ min-height:36px; padding:4px 10px; background:transparent; border:none; color:var(--fg); cursor:pointer }
+    .theme-switch button.active{ background:var(--panel); border-left:1px solid var(--border); border-right:1px solid var(--border) }
+
+    .install{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); align-items:center; justify-content:center; }
+    .install .sheet{ width:min(560px,92vw); background:var(--panel); color:var(--fg); border:1px solid var(--border); border-radius:20px; padding:18px; box-shadow:var(--shadow) }
+    .install .sheet h3{ margin:0 0 6px }
+    .install .sheet p{ margin:6px 0 12px; color:var(--fg-muted) }
+    .install .sheet ol{ margin:10px 0 0 18px }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <nav>
+        <div class="brand">
+          <!-- Inline SVG Logo (Progress-Line) -->
+          <svg class="logo" viewBox="0 0 512 512" width="32" height="32" xmlns="http://www.w3.org/2000/svg" aria-label="LeanTrack Logo"><rect width="512" height="512" rx="120" fill="currentColor" opacity=".1"/><path d="M120 330 L220 250 L310 290 L400 180" stroke="var(--accent)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+          <span>LeanTrack</span>
+        </div>
+        <div class="actions">
+          <div class="theme-switch" role="tablist" aria-label="Theme">
+            <button id="t-dark" class="active" role="tab" aria-selected="true">Dunkel</button>
+            <button id="t-light" role="tab" aria-selected="false">Hell</button>
+            <button id="t-system" role="tab" aria-selected="false">System</button>
+          </div>
+          <a class="btn ghost" id="gh" href="https://github.com/<your-user>/leantrack" target="_blank" rel="noopener">GitHub</a>
+          <a class="btn" id="openApp" href="./" rel="noopener">Web‑App öffnen</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="container hero">
+      <div>
+        <span class="pill">Open Source • PWA • 100% lokal</span>
+        <h1>Track it. Improve it.</h1>
+        <p>Minimalistische Fitness‑App für Menschen, die Ergebnisse wollen: Gewicht, Kalorien, Wasser, Protein. Offline. Ohne Account. Auf jedem Gerät.</p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px">
+          <button class="btn primary" id="installBtn">Als App installieren</button>
+          <a class="btn" href="./" rel="noopener">Jetzt starten</a>
+          <a class="btn ghost" href="#features">Features</a>
+        </div>
+      </div>
+      <div class="hero-card">
+        <div class="kpis">
+          <div class="kpi"><div class="muted">Kalorien übrig</div><div class="val">480 kcal</div></div>
+          <div class="kpi"><div class="muted">Wasser</div><div class="val">1850 ml</div></div>
+          <div class="kpi"><div class="muted">Protein</div><div class="val">92 g</div></div>
+        </div>
+        <div style="height:12px"></div>
+        <div class="muted" style="margin:6px 0 10px">Wasser‑Heatmap (Beispiel)</div>
+        <div class="heatmap" aria-hidden="true" title="Mock Heatmap">
+          <div class="cell" style="background:#e5e7eb22">Mo</div>
+          <div class="cell" style="background:hsl(210 90% 78%)"></div>
+          <div class="cell" style="background:hsl(210 90% 70%)"></div>
+          <div class="cell" style="background:hsl(210 90% 62%)"></div>
+          <div class="cell" style="background:hsl(210 90% 55%)"></div>
+          <div class="cell" style="background:hsl(210 90% 80%)"></div>
+          <div class="cell" style="background:hsl(210 90% 90%)"></div>
+          <!-- next row dummy -->
+          <div class="cell" style="background:#e5e7eb22">Di</div>
+          <div class="cell" style="background:hsl(210 90% 85%)"></div>
+          <div class="cell" style="background:hsl(210 90% 70%)"></div>
+          <div class="cell" style="background:hsl(210 90% 60%)"></div>
+          <div class="cell" style="background:hsl(210 90% 50%)"></div>
+          <div class="cell" style="background:hsl(210 90% 65%)"></div>
+          <div class="cell" style="background:hsl(210 90% 88%)"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="container section">
+      <div class="grid features">
+        <div class="card">
+          <h3>Installierbare PWA</h3>
+          <p class="muted">Homescreen‑Icon, Vollbild, offline – wie eine native App, ohne Store.</p>
+        </div>
+        <div class="card">
+          <h3>100% lokal</h3>
+          <p class="muted">Daten bleiben auf deinem Gerät. Export/Import als JSON – volle Datenhoheit.</p>
+        </div>
+        <div class="card">
+          <h3>Trends & Heatmap</h3>
+          <p class="muted">Gewichts‑Trend (7‑Tage‑Mittel) und Wasser‑Heatmap für saubere Gewohnheiten.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="container section">
+      <div class="card" style="display:grid; grid-template-columns:1fr 1fr; gap:18px">
+        <div>
+          <h3>Open Source</h3>
+          <p class="muted">Keine Black Box. Prüfe, fork’ und verbessere den Code. LeanTrack ist MIT‑lizenziert.</p>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px">
+            <a class="btn" href="https://github.com/<your-user>/leantrack" target="_blank" rel="noopener">Zum Repository</a>
+            <a class="btn ghost" href="./" rel="noopener">Web‑App öffnen</a>
+          </div>
+        </div>
+        <div>
+          <h3>Privacy by Design</h3>
+          <p class="muted">Keine Accounts, kein Tracking‑Script, kein Verkauf von Daten. Punkt.</p>
+          <ul class="muted" style="margin:0; padding-left:18px">
+            <li>Nur localStorage</li>
+            <li>ICS‑Reminder (Kalender), kein Push‑Server</li>
+            <li>Einfacher Service Worker für Offline</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap">
+      <div>© <span id="year"></span> LeanTrack • MIT License</div>
+      <div class="muted">Made for people who measure.</div>
+    </div>
+  </footer>
+
+  <!-- Bottom Tabs (visual hint to app UI) -->
+  <div class="tabs" role="navigation" aria-label="App Preview Tabs">
+    <button>Heute</button>
+    <button>Trends</button>
+    <button>Ziele</button>
+  </div>
+
+  <!-- Install Sheet -->
+  <div class="install" id="installSheet" aria-modal="true" role="dialog">
+    <div class="sheet">
+      <h3>Als App installieren</h3>
+      <p>So fügst du LeanTrack zum Startbildschirm hinzu:</p>
+      <div id="iosSteps" style="display:none">
+        <ol>
+          <li>Safari öffnen</li>
+          <li>Teilen‑Icon tippen</li>
+          <li>„Zum Home‑Bildschirm“ wählen</li>
+        </ol>
+      </div>
+      <div id="androidSteps" style="display:none">
+        <ol>
+          <li>Chrome/Brave öffnen</li>
+          <li>Menü (⋮) → „Zum Startbildschirm hinzufügen“</li>
+        </ol>
+      </div>
+      <div id="desktopSteps" style="display:none">
+        <ol>
+          <li>Chrome/Edge auf Desktop</li>
+          <li>Installations‑Icon in der Adresszeile klicken</li>
+        </ol>
+      </div>
+      <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:14px">
+        <button class="btn ghost" id="closeInstall">Schließen</button>
+        <a class="btn" href="./">App öffnen</a>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // Year
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  // Theme
+  const root = document.documentElement; const metaTheme = document.getElementById('meta-theme-color');
+  const setTheme = (t)=>{ root.setAttribute('data-theme', t); metaTheme.setAttribute('content', t==='light' ? '#FFFFFF' : '#0B0F19'); localStorage.setItem('leantrack_theme_lp', t); document.querySelectorAll('.theme-switch button').forEach(b=>b.classList.remove('active')); document.getElementById('t-'+t).classList.add('active'); }
+  ['dark','light','system'].forEach(id=>{ const el=document.getElementById('t-'+id); el.addEventListener('click',()=>setTheme(id)); });
+  setTheme(localStorage.getItem('leantrack_theme_lp') || 'system');
+
+  // Install Sheet (instructions only)
+  const sheet = document.getElementById('installSheet');
+  const openInstall = ()=>{
+    const ua = navigator.userAgent || navigator.vendor || window.opera;
+    const isiOS = /iPad|iPhone|iPod/.test(ua);
+    const isAndroid = /Android/.test(ua);
+    document.getElementById('iosSteps').style.display = isiOS ? 'block' : 'none';
+    document.getElementById('androidSteps').style.display = isAndroid ? 'block' : 'none';
+    document.getElementById('desktopSteps').style.display = (!isiOS && !isAndroid) ? 'block' : 'none';
+    sheet.style.display = 'flex';
+  };
+  document.getElementById('installBtn').addEventListener('click', openInstall);
+  document.getElementById('closeInstall').addEventListener('click', ()=> sheet.style.display = 'none');
+</script>
+</body>
+</html>
