@@ -1,0 +1,101 @@
+/* LeanTrack – iOS‑inspiriertes UI, Light/Dark, Blur-Nav */
+
+:root{
+  /* Dark defaults */
+  --surface:#0B0F19;
+  --card:#111827;
+  --stroke:#1F2937;
+  --text:#E5E7EB;
+  --muted:#9CA3AF;
+  --accent:#3B82F6;
+  --success:#22C55E;
+  --danger:#EF4444;
+  --shadow:0 10px 30px rgba(0,0,0,.25);
+}
+
+html[data-theme="light"]{
+  --surface:#FFFFFF;
+  --card:#FFFFFF;
+  --stroke:#E5E7EB;
+  --text:#111827;
+  --muted:#6B7280;
+}
+
+html[data-theme="system"]{ color-scheme: light dark; }
+@media (prefers-color-scheme: light){ html[data-theme="system"]{
+  --surface:#FFFFFF; --card:#FFFFFF; --stroke:#E5E7EB; --text:#111827; --muted:#6B7280;
+}}
+@media (prefers-color-scheme: dark){ html[data-theme="system"]{
+  --surface:#0B0F19; --card:#111827; --stroke:#1F2937; --text:#E5E7EB; --muted:#9CA3AF;
+}}
+
+*{ box-sizing:border-box }
+html, body { height:100% }
+body{
+  margin:0;
+  font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Inter, Arial, sans-serif;
+  background:var(--surface);
+  color:var(--text);
+}
+
+/* Layout */
+.app-wrapper{ min-height:100vh; padding-bottom:84px; /* space for bottom nav */ }
+.screen{ max-width:900px; margin:0 auto; padding:20px; }
+
+/* Headings */
+h1, h2, h3{ margin:0 0 10px; font-weight:700 }
+h2{ font-size:28px }
+
+/* Cards & Inputs */
+.card-group{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:10px }
+@media (max-width:760px){ .card-group{ grid-template-columns:1fr } }
+
+.card-input{
+  background:var(--card);
+  border:1px solid var(--stroke);
+  border-radius:22px;
+  padding:14px;
+  box-shadow:var(--shadow);
+}
+.card-input label{ display:block; font-size:13px; color:var(--muted); margin-bottom:6px }
+.card-input input{
+  width:100%; height:48px; padding:0 14px;
+  border-radius:14px;
+  border:1px solid var(--stroke);
+  background:transparent;
+  color:var(--text);
+  outline:none;
+}
+.card-input input:focus{ border-color:color-mix(in oklab, var(--accent), var(--stroke) 40%) }
+
+/* Bottom Navigation (iOS translucent + blur) */
+.bottom-nav{
+  position:fixed; left:0; right:0; bottom:0;
+  display:grid; grid-template-columns:repeat(3,1fr); gap:10px;
+  padding:10px clamp(14px, 4vw, 20px);
+  backdrop-filter: saturate(180%) blur(14px);
+  background: color-mix(in oklab, var(--surface), transparent 30%);
+  border-top:1px solid var(--stroke);
+}
+
+.tab-btn{
+  min-height:48px; border-radius:16px;
+  background:var(--card);
+  border:1px solid var(--stroke);
+  color:var(--text);
+  font-size:14px;
+}
+.tab-btn.active{
+  background: color-mix(in oklab, var(--accent), var(--card) 70%);
+  border-color: color-mix(in oklab, var(--accent), var(--stroke) 40%);
+}
+
+/* Helpers */
+.muted{ color:var(--muted) }
+.btn{ min-height:44px; padding:10px 16px; border-radius:14px; border:1px solid var(--stroke); background:var(--card); color:var(--text) }
+.btn.primary{ background:var(--accent); color:white; border-color:transparent }
+
+/* Accessibility */
+:focus-visible{ outline:2px solid var(--accent); outline-offset:2px }
+input::-webkit-outer-spin-button, input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0 }
+input[type=number]{ -moz-appearance:textfield }
