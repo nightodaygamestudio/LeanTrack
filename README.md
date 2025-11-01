@@ -1,6 +1,16 @@
 # LeanTrack
 Minimalist fitness PWA for tracking weight, calories, water and protein. 100% local, offline, no account required. Open source.
 
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="120" fill="#FFFFFF"/>
+  <path d="M120 330 L220 250 L310 290 L400 180" stroke="#3B82F6" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="120" fill="#0B0F19"/>
+  <path d="M120 330 L220 250 L310 290 L400 180" stroke="#3B82F6" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
 LeanTrack
 
 Minimalist fitness PWA for tracking weight, calories, water, and protein.
