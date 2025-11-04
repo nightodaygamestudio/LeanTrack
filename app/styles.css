@@ -219,3 +219,22 @@ body{
   color: var(--muted);        /* ✅ Grau */
 }
 
+/* Trends Collapsible */
+.card-collapsible { padding:0; overflow:hidden; }
+.collapsible-header{
+  width:100%; display:flex; justify-content:space-between; align-items:center;
+  background:transparent; border:0; cursor:pointer; padding:16px;
+}
+.collapsible-title{ display:flex; flex-direction:column; }
+.chevron{ transition:.25s; }
+.chevron.rotate{ transform:rotate(180deg); }
+
+.collapsible-body{ max-height:0; overflow:hidden; transition:max-height .3s ease; }
+.collapsible-body.open{ max-height:520px; }
+
+.collapsible-grid{
+  display:grid; gap:10px; padding:12px;
+  grid-template-columns:1fr 1fr;
+}
+.kv{ display:flex; justify-content:space-between; padding:8px 12px;
+     border-radius:12px; background:var(--card); border:1px solid var(--stroke);}
