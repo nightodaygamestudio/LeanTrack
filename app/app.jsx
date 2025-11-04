@@ -296,57 +296,76 @@ function Today({ state, setState, profile, goals }){
   );
 }
 
-/* ---------------- Trends ---------------- */
+/* ---------------- Trends (aufklappbare Tageskarten) ---------------- */
 function Trends(){
-  const days = useMemo(()=> loadAllDays(), []);
-  if (days.length === 0) return (
-    <div className="screen">
-      <h2>Trends</h2>
-      <p className="muted">Noch keine Tagesdaten.</p>
-    </div>
-  );
+  const [expanded, setExpanded] = React.useState(new Set()); // Set mit date-Strings
+  const days = React.useMemo(()=> loadAllDays(), []);
+
+  const toggle = (date) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      next.has(date) ? next.delete(date) : next.add(date);
+      return next;
+    });
+  };
+
+  if (days.length === 0) {
+    return (
+      <div className="screen">
+        <h2>Trends</h2>
+        <p className="muted">Noch keine Tagesdaten.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="screen">
       <h2>Trends</h2>
 
-      {days.map((d)=> {
+      {days.map(d => {
+        const open = expanded.has(d.date);
         const kcalBurn = estimateActivityKcal({
           weightKg: d.weight,
           distanceKm: d.distanceKm,
           minutes: d.minutes,
           steps: d.steps
         });
+
         return (
           <div key={d.date} className="card-group" style={{marginTop:12}}>
-            <div className="card-input">
-              <label>Datum</label>
-              <div style={{fontWeight:700}}>{d.date}</div>
-            </div>
-            <div className="card-input">
-              <label>Gewicht</label>
-              <div>{d.weight ? `${d.weight} kg` : "—"}</div>
-            </div>
-            <div className="card-input">
-              <label>Kalorien (Aufnahme)</label>
-              <div>{d.calories ? `${d.calories} kcal` : "—"}</div>
-            </div>
-            <div className="card-input">
-              <label>Wasser</label>
-              <div>{d.water ? `${d.water} ml` : "—"}</div>
-            </div>
-            <div className="card-input">
-              <label>Protein</label>
-              <div>{d.protein ? `${d.protein} g` : "—"}</div>
-            </div>
-            <div className="card-input">
-              <label>Aktivität</label>
-              <div className="muted" style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8}}>
-                <span>Schritte: <strong>{d.steps || 0}</strong></span>
-                <span>Minuten: <strong>{d.minutes || 0}</strong></span>
-                <span>Distanz: <strong>{d.distanceKm || 0} km</strong></span>
+            {/* Summary-Karte (Datum + Hinweis) */}
+            <div className="card-input card-collapsible">
+              <button
+                className="collapsible-header"
+                aria-expanded={open}
+                aria-controls={`day-${d.date}`}
+                onClick={()=>toggle(d.date)}
+              >
+                <div className="collapsible-title">
+                  <strong>{d.date}</strong>
+                  <span className="muted">Tippen für mehr Infos</span>
+                </div>
+                <span className={"chevron" + (open ? " rotate" : "")}>▾</span>
+              </button>
+
+              {/* Detailbereich */}
+              <div
+                id={`day-${d.date}`}
+                className={"collapsible-body" + (open ? " open" : "")}
+                role="region"
+                aria-hidden={!open}
+              >
+                <div className="collapsible-grid">
+                  <div className="kv"><span className="k">Gewicht</span><span className="v">{d.weight ? `${d.weight} kg` : "—"}</span></div>
+                  <div className="kv"><span className="k">Kalorien</span><span className="v">{d.calories ? `${d.calories} kcal` : "—"}</span></div>
+                  <div className="kv"><span className="k">Wasser</span><span className="v">{d.water ? `${d.water} ml` : "—"}</span></div>
+                  <div className="kv"><span className="k">Protein</span><span className="v">{d.protein ? `${d.protein} g` : "—"}</span></div>
+                  <div className="kv"><span className="k">Schritte</span><span className="v">{d.steps || 0}</span></div>
+                  <div className="kv"><span className="k">Minuten</span><span className="v">{d.minutes || 0}</span></div>
+                  <div className="kv"><span className="k">Distanz</span><span className="v">{d.distanceKm ? `${d.distanceKm} km` : "0 km"}</span></div>
+                  <div className="kv"><span className="k">Verbrannt (≈)</span><span className="v">{kcalBurn} kcal</span></div>
+                </div>
               </div>
-              <div style={{marginTop:6}}>Verbrannt (≈): <strong>{kcalBurn}</strong> kcal</div>
             </div>
           </div>
         );
