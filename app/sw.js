@@ -1,6 +1,6 @@
 // PWA Service Worker für LeanTrack
 // Erhöhe CACHE_NAME bei jeder relevanten UI-/JS-/CSS-Änderung.
-const CACHE_NAME = "leantrack-cache-v12";
+const CACHE_NAME = "leantrack-cache-v13";
 
 const ASSETS_TO_CACHE = [
   "./",
