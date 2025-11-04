@@ -2,8 +2,9 @@
 // Tabs: Heute / Trends / Ziele / Patch Notes
 // Persistenz: localStorage
 // Onboarding: Name, Alter, Größe, Startgewicht, Zielgewicht + BMI
-// Neu: Theme-Übergabe von Landing (liest lt_seen_landing + lt_theme),
-//      Kalorien-/Wasser-Progess mit Zielen (heute), Protein optional
+// Theme-Handover von Landing (liest lt_seen_landing + lt_theme)
+// Progress für Kalorien, Wasser, Protein
+// NEU: Vollbild-Splash als eigener Screen – erst ab dem 2. App-Start nach Onboarding
 
 const { useState, useEffect, useMemo } = React;
 
@@ -25,9 +26,9 @@ const STORAGE = {
   patchSeen: 'lt_patch_seen'    // version string
 };
 
-const APP_VERSION = '1.0.1';
+const APP_VERSION = '1.0.2';
 
-// ---------- BMI ----------
+// ---------- Helpers ----------
 function calcBMI(weightKg, heightCm){
   const h = Number(heightCm)/100;
   const w = Number(weightKg);
@@ -40,6 +41,13 @@ function bmiCategory(bmi){
   if (bmi < 25) return 'Normalgewicht';
   if (bmi < 30) return 'Übergewicht';
   return 'Adipositas';
+}
+function getGreeting(){
+  const h = new Date().getHours();
+  if (h < 11) return 'Guten Morgen';
+  if (h < 17) return 'Guten Tag';
+  if (h < 22) return 'Guten Abend';
+  return 'Gute Nacht';
 }
 
 // ---------- UI Primitives ----------
@@ -136,6 +144,8 @@ function Onboarding({ initial, onComplete }){
           goals.targetWeightKg = targetWeightKg;
           save(STORAGE.profile, profile);
           save(STORAGE.goals, goals);
+          // Splash erst beim nächsten App-Start zeigen → Flag initial auf 0
+          try { localStorage.setItem('lt_welcomed', '0'); } catch {}
           onComplete(profile, goals);
         }}>Fertig</button>
       </div>
@@ -297,9 +307,12 @@ function Goals({ goals, setGoals, profile, setProfile }){
 
 // ---------- Patch Notes ----------
 const PATCH_NOTES = [
+  { version: '1.0.2', date: '2025-11-04', items: [
+    'Vollbild-Splash (eigener Screen) mit persönlicher Begrüßung – ab 2. App-Start.',
+  ]},
   { version: '1.0.1', date: '2025-11-04', items: [
-    'Theme-Handover von Landing: App liest gespeichertes Theme (lt_theme/leantrack_theme_lp).',
-    'Heute-Screen: Kalorien-, Wasser- und Protein-Progress mit Zielen (Buttons +/−).',
+    'Theme-Handover von Landing.',
+    'Heute: Kalorien-, Wasser- und Protein-Progress inkl. +/- Buttons.',
   ]},
   { version: '1.0.0', date: '2025-01-01', items: [
     'Onboarding (Name, Alter, Größe, Startgewicht, Zielgewicht).',
@@ -324,6 +337,15 @@ function PatchNotes(){
           </ul>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ---------- Splash Screen (Full) ----------
+function SplashScreen({ name }){
+  return (
+    <div className="splash-fullscreen">
+      <h1>{getGreeting()}, {name || 'du'} 🎉</h1>
     </div>
   );
 }
@@ -374,23 +396,63 @@ function App() {
     return <Onboarding initial={profile || {}} onComplete={(p, g)=>{ setProfile(p); setGoals(g); }} />
   }
 
+  // Splash-Logik: erst ab dem 2. App-Start nach Onboarding anzeigen
+  const [showSplash, setShowSplash] = useState(false);
+  useEffect(()=>{
+    try{
+      if (profile?.name){
+        const flag = localStorage.getItem('lt_welcomed') || '0';
+        if (flag === '0'){
+          // 1. Start nach Onboarding → Splash fürs nächste Mal vormerken
+          localStorage.setItem('lt_welcomed','1');
+        } else if (flag === '1') {
+          // 2. Start → Splash zeigen und dann auf "2" setzen
+          setShowSplash(true);
+          const t = setTimeout(()=> setShowSplash(false), 1400);
+          localStorage.setItem('lt_welcomed','2');
+          return ()=> clearTimeout(t);
+        }
+      }
+    }catch{}
+  }, [profile?.name]);
+
   return (
     <div className="app-wrapper">
-      {/* Screens */}
-      {tab === "today"  && <Today date={todayISO()} state={state} setState={setState} profile={profile} goals={goals} /> }
-      {tab === "trends" && <Trends weightHistory={weightHistory} /> }
-      {tab === "goals"  && <Goals goals={goals} setGoals={setGoals} profile={profile} setProfile={setProfile} /> }
-      {tab === "patch"  && <PatchNotes /> }
+      {showSplash ? (
+        <SplashScreen name={profile?.name} />
+      ) : (
+        <>
+          {tab === "today"  && <Today date={todayISO()} state={state} setState={setState} profile={profile} goals={goals} /> }
+          {tab === "trends" && <Trends weightHistory={weightHistory} /> }
+          {tab === "goals"  && <Goals goals={goals} setGoals={setGoals} profile={profile} setProfile={setProfile} /> }
+          {tab === "patch"  && <PatchNotes /> }
 
-      {/* Bottom Navigation */}
-      <div className="bottom-nav">
-        <TabButton label="Heute"       active={tab === "today"}  onClick={()=>setTab("today")} />
-        <TabButton label="Trends"      active={tab === "trends"} onClick={()=>setTab("trends")} />
-        <TabButton label="Ziele"       active={tab === "goals"}  onClick={()=>setTab("goals")} />
-        <TabButton label="Patch Notes" active={tab === "patch"}  onClick={()=>setTab("patch")} />
-      </div>
+          <div className="bottom-nav">
+            <TabButton label="Heute"       active={tab === "today"}  onClick={()=>setTab("today")} />
+            <TabButton label="Trends"      active={tab === "trends"} onClick={()=>setTab("trends")} />
+            <TabButton label="Ziele"       active={tab === "goals"}  onClick={()=>setTab("goals")} />
+            <TabButton label="Patch Notes" active={tab === "patch"}  onClick={()=>setTab("patch")} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 ReactDOM.createRoot(document.getElementById("app")).render(<App />);
+
+/* Fullscreen Splash */
+.splash-fullscreen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  color: var(--text);
+  font-size: clamp(26px, 6vw, 42px);
+  font-weight: 700;
+  animation: splashFade 0.3s ease-out;
+  z-index: 9999;
+}
+@keyframes splashFade { from { opacity: 0; } to { opacity: 1; } }
