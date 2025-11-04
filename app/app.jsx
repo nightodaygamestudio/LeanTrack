@@ -1,6 +1,7 @@
-// LeanTrack App – stabiler Onboarding-Flow + lokales Datum + einheitlicher Header
+// LeanTrack App – stabiler Onboarding-Flow mit Fail-safe Reload (S8/Firefox), lokales Datum, einheitlicher Header
 // Tabs: Heute / Trends / Ziele / Install
 // Persistenz: localStorage
+// Onboarding: Profil + Ziele vollständig (Name, Alter, Größe, Startgewicht, Zielgewicht, daily kcal/ml/g)
 // Splash: ab 2. Start nach Onboarding
 // ErrorBoundary: ersetzt „schwarzer Screen“ durch Fehlermeldung
 
@@ -66,13 +67,12 @@ function ProgressBar({ value, max, unit }){
   return (<div><div className="muted" style={{marginBottom:6}}>{m>0?`${v}${unit?' '+unit:''} / ${m}${unit?' '+unit:''} (${pct}%)`:'Kein Ziel gesetzt'}</div><div style={{height:12, background:'var(--stroke)', borderRadius:999}}><div style={{width:pct+'%', height:'100%', background:'var(--success)', borderRadius:999}}></div></div></div>);
 }
 
-/* ---------- App Header (einheitlich) ---------- */
+/* ---------- App Header ---------- */
 function AppHeader({ onToggleTheme }){
   return (
     <header className="app-header">
       <div className="app-header-inner">
         <div className="app-header-left">
-          {/* Logo 40x40 */}
           <svg className="app-logo" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-label="LeanTrack Logo">
             <rect width="512" height="512" rx="120" fill="currentColor" opacity=".1"/>
             <path d="M120 330 L220 250 L310 290 L400 180" stroke="var(--accent)" strokeWidth="28" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
@@ -87,45 +87,85 @@ function AppHeader({ onToggleTheme }){
   );
 }
 
-/* ---------- Screens ---------- */
+/* ---------- Onboarding: Profil + Ziele komplett ---------- */
 function Onboarding({ initial, onComplete }){
   const [name,setName]=useState(initial?.name||'');
   const [age,setAge]=useState(initial?.age||'');
   const [heightCm,setHeightCm]=useState(initial?.heightCm||'');
   const [startWeightKg,setStartWeightKg]=useState(initial?.startWeightKg||'');
-  const [targetWeightKg,setTargetWeightKg]=useState(load(STORAGE.goals,{targetWeightKg:''})?.targetWeightKg||'');
+
+  // Ziele direkt im Onboarding
+  const g0 = load(STORAGE.goals, { dailyCalories:"2000", dailyWaterMl:"2000", dailyProteinG:"120", targetWeightKg:"" });
+  const [targetWeightKg,setTargetWeightKg]=useState(g0.targetWeightKg || '');
+  const [dailyCalories,setDailyCalories]=useState(g0.dailyCalories || '2000');
+  const [dailyWaterMl,setDailyWaterMl]=useState(g0.dailyWaterMl || '2000');
+  const [dailyProteinG,setDailyProteinG]=useState(g0.dailyProteinG || '120');
 
   const bmi=useMemo(()=>calcBMI(startWeightKg,heightCm),[startWeightKg,heightCm]);
   const ready=name.trim()&&heightCm&&startWeightKg;
 
-  return (<div className="screen"><h2>Willkommen bei LeanTrack</h2><p className="muted">Einmal Basisdaten eingeben. Später unter „Ziele“ änderbar.</p>
-    <div className="card-group">
-      <TextInput label="Name" value={name} onChange={setName} placeholder="Max"/>
-      <NumberInput label="Alter" value={age} onChange={setAge} placeholder="30"/>
-      <NumberInput label="Größe (cm)" value={heightCm} onChange={setHeightCm} placeholder="180"/>
-      <NumberInput label="Startgewicht (kg)" value={startWeightKg} onChange={setStartWeightKg} placeholder="88.9"/>
-      <NumberInput label="Zielgewicht (kg)" value={targetWeightKg} onChange={setTargetWeightKg} placeholder="80"/>
-    </div>
-    <div className="card-group" style={{marginTop:14}}>
-      <div className="card-input"><label>BMI</label><div style={{display:'flex',alignItems:'baseline',gap:8}}><div style={{fontSize:26,fontWeight:700}}>{bmi ?? '—'}</div><div className="muted">{bmi? (bmi<18.5?'Untergewicht':bmi<25?'Normalgewicht':bmi<30?'Übergewicht':'Adipositas'):'—'}</div></div></div>
-    </div>
-    <button className="btn primary" disabled={!ready} style={{marginTop:20}}
-      onClick={()=>{
-        const profile = { name: name.trim(), age, heightCm, startWeightKg };
-        const defaults = { dailyCalories:"2000", dailyWaterMl:"2000", dailyProteinG:"120", targetWeightKg };
-        const goals = Object.assign(defaults, load(STORAGE.goals, {}));
-        goals.targetWeightKg = targetWeightKg;
+  const handleFinish = (e)=>{
+    e?.preventDefault?.();
+    const profile = { name: name.trim(), age, heightCm, startWeightKg };
+    const goals = {
+      targetWeightKg: targetWeightKg || '',
+      dailyCalories: dailyCalories || '2000',
+      dailyWaterMl: dailyWaterMl || '2000',
+      dailyProteinG: dailyProteinG || '120'
+    };
+    save(STORAGE.profile, profile);
+    save(STORAGE.goals, goals);
+    localStorage.setItem("lt_welcomed", "0");
+    localStorage.setItem("lt_post_onboarding", "1"); // Marker für Fail-safe
 
-        save(STORAGE.profile, profile);
-        save(STORAGE.goals, goals);
-        localStorage.setItem("lt_welcomed", "0"); // Splash ab nächstem Start
+    // Primär: Parent übernimmt State & navigiert
+    onComplete({ profile, goals });
 
-        onComplete({ profile, goals }); // Parent setzt State + lädt Tag + Tab=Heute
-      }}
-    >Fertig</button>
-  </div>);
+    // Fail-safe (S8/Firefox): wenn UI nicht in ~400ms sichtbar, Soft-Reload
+    setTimeout(()=>{
+      const ok = document.getElementById('app-ready-flag');
+      if (!ok) location.replace("./");
+    }, 400);
+  };
+
+  return (
+    <div className="screen">
+      <h2>Willkommen bei LeanTrack</h2>
+      <p className="muted">Bitte einmalig Profil & Ziele eingeben. Alles ist später unter „Ziele“ änderbar.</p>
+
+      <form onSubmit={handleFinish}>
+        <div className="card-group">
+          <TextInput   label="Name"               value={name}           onChange={setName}            placeholder="Max" />
+          <NumberInput label="Alter"              value={age}            onChange={setAge}             placeholder="30" />
+          <NumberInput label="Größe (cm)"         value={heightCm}       onChange={setHeightCm}        placeholder="180" />
+          <NumberInput label="Startgewicht (kg)"  value={startWeightKg}  onChange={setStartWeightKg}   placeholder="88.9" />
+          <NumberInput label="Zielgewicht (kg)"   value={targetWeightKg} onChange={setTargetWeightKg}  placeholder="80" />
+          <NumberInput label="Tägliche Kalorien"  value={dailyCalories}  onChange={setDailyCalories}   placeholder="2000" />
+          <NumberInput label="Tägliches Wasser (ml)" value={dailyWaterMl} onChange={setDailyWaterMl}   placeholder="2000" />
+          <NumberInput label="Tägliches Protein (g)" value={dailyProteinG} onChange={setDailyProteinG} placeholder="120" />
+        </div>
+
+        <div className="card-group" style={{marginTop:14}}>
+          <div className="card-input">
+            <label>BMI (Start)</label>
+            <div style={{display:'flex', alignItems:'baseline', gap:8}}>
+              <div style={{fontSize:26, fontWeight:700}}>{bmi ?? '—'}</div>
+              <div className="muted">
+                {bmi ? (bmi<18.5?'Untergewicht':bmi<25?'Normalgewicht':bmi<30?'Übergewicht':'Adipositas') : '—'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" className="btn primary" disabled={!ready} style={{marginTop:16}}>
+          Fertig
+        </button>
+      </form>
+    </div>
+  );
 }
 
+/* ---------- Today ---------- */
 function GoalProgress({ profile, goals, currentWeight }){
   const start=Number(profile?.startWeightKg), target=Number(goals?.targetWeightKg), current=Number(currentWeight||start);
   if(!start||!target) return <div className="muted">Bitte Start- und Zielgewicht setzen.</div>;
@@ -185,6 +225,7 @@ function Today({ state, setState, profile, goals }){
   </div>);
 }
 
+/* ---------- Trends ---------- */
 function Trends(){
   const [expanded,setExpanded]=useState(new Set());
   const days=useMemo(()=> loadAllDaysSortedDesc(), []);
@@ -218,6 +259,7 @@ function Trends(){
   </div>);
 }
 
+/* ---------- Ziele ---------- */
 function Goals({ profile, setProfile, goals, setGoals }){
   const startBMI=calcBMI(profile?.startWeightKg, profile?.heightCm);
   return (<div className="screen"><h2>Ziele & Profil</h2>
@@ -239,6 +281,7 @@ function Goals({ profile, setProfile, goals, setGoals }){
   </div>);
 }
 
+/* ---------- Install ---------- */
 function Install(){
   const ua=navigator.userAgent||navigator.vendor||window.opera; const isiOS=/iPad|iPhone|iPod/.test(ua); const isAndroid=/Android/.test(ua); const isDesktop=!isiOS && !isAndroid;
   return (<div className="screen"><h2>Als App installieren</h2>
@@ -251,6 +294,7 @@ function Install(){
   </div>);
 }
 
+/* ---------- Splash ---------- */
 function SplashScreen({ name }){ return (<div className="splash-fullscreen"><h1>{greet()}, {name || "du"} 🎉</h1></div>); }
 
 /* ---------- Root ---------- */
@@ -306,6 +350,9 @@ function App(){
           <SplashScreen name={profile?.name}/>
         ) : (
           <>
+            {/* Ready-Flag für Fail-safe Prüflogik */}
+            <div id="app-ready-flag" style={{display:'none'}}></div>
+
             {tab==="today"   && <Today  state={state} setState={setState} profile={profile} goals={goals} /> }
             {tab==="trends"  && <Trends /> }
             {tab==="goals"   && <Goals  profile={profile} setProfile={setProfile} goals={goals} setGoals={setGoals} /> }
