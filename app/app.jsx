@@ -50,6 +50,22 @@ function getGreeting(){
   return 'Gute Nacht';
 }
 
+// --- Theme Helpers (App <-> Landing konsistent) ---
+function getStoredTheme() {
+  try {
+    return localStorage.getItem('leantrack_theme_lp')
+        || localStorage.getItem('lt_theme')
+        || 'system';
+  } catch { return 'system'; }
+}
+function applyTheme(t) {
+  try {
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('leantrack_theme_lp', t);
+    localStorage.setItem('lt_theme', t);
+  } catch {}
+}
+
 // ---------- UI Primitives ----------
 function TabButton({ label, active, onClick }) {
   return (
