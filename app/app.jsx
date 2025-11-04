@@ -1,11 +1,15 @@
-// LeanTrack App – Header vereinheitlicht (Logo 40x40, Titel zentriert, Theme rechts)
-// Plus: bestehende Tabs/Logik unverändert
+// LeanTrack App – stabiler Onboarding-Flow + lokales Datum + einheitlicher Header
+// Tabs: Heute / Trends / Ziele / Install
+// Persistenz: localStorage
+// Splash: ab 2. Start nach Onboarding
+// ErrorBoundary: ersetzt „schwarzer Screen“ durch Fehlermeldung
 
 const { useState, useEffect, useMemo } = React;
 
-/* ---------- Storage + Helpers (unverändert) ---------- */
+/* ---------- Storage + Helpers ---------- */
 const load = (k, fb) => { try { return JSON.parse(localStorage.getItem(k)) ?? fb; } catch { return fb; } };
 const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
 const pad2 = (n) => String(n).padStart(2, "0");
 const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; };
 
@@ -30,6 +34,25 @@ function getStoredTheme(){ try{ return localStorage.getItem("leantrack_theme_lp"
 function applyTheme(t){ try{ document.documentElement.setAttribute("data-theme", t); localStorage.setItem("leantrack_theme_lp", t); localStorage.setItem("lt_theme", t);}catch{} }
 function greet(){ const h=new Date().getHours(); return h<11?"Guten Morgen":h<17?"Guten Tag":h<22?"Guten Abend":"Gute Nacht"; }
 
+/* ---------- ErrorBoundary (klassisch) ---------- */
+class ErrorBoundary extends React.Component {
+  constructor(props){ super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error){ return { error }; }
+  componentDidCatch(error, info){ console.error("LeanTrack Error:", error, info); }
+  render(){
+    if (this.state.error){
+      return (
+        <div className="screen">
+          <h2>Oops – etwas ist schiefgelaufen</h2>
+          <p className="muted">{String(this.state.error)}</p>
+          <button className="btn" onClick={()=>location.reload()}>Neu laden</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 /* ---------- UI Primitives ---------- */
 function TabButton({label, active, onClick}){ return <button className={active?"tab-btn active":"tab-btn"} onClick={onClick}>{label}</button>; }
 function NumberInput({ label, value, onChange, placeholder }) {
@@ -43,7 +66,7 @@ function ProgressBar({ value, max, unit }){
   return (<div><div className="muted" style={{marginBottom:6}}>{m>0?`${v}${unit?' '+unit:''} / ${m}${unit?' '+unit:''} (${pct}%)`:'Kein Ziel gesetzt'}</div><div style={{height:12, background:'var(--stroke)', borderRadius:999}}><div style={{width:pct+'%', height:'100%', background:'var(--success)', borderRadius:999}}></div></div></div>);
 }
 
-/* ---------- App Header (NEU) ---------- */
+/* ---------- App Header (einheitlich) ---------- */
 function AppHeader({ onToggleTheme }){
   return (
     <header className="app-header">
@@ -66,8 +89,15 @@ function AppHeader({ onToggleTheme }){
 
 /* ---------- Screens ---------- */
 function Onboarding({ initial, onComplete }){
-  const [name,setName]=useState(initial?.name||''); const [age,setAge]=useState(initial?.age||''); const [heightCm,setHeightCm]=useState(initial?.heightCm||''); const [startWeightKg,setStartWeightKg]=useState(initial?.startWeightKg||''); const [targetWeightKg,setTargetWeightKg]=useState(load(STORAGE.goals,{targetWeightKg:''})?.targetWeightKg||'');
-  const bmi=useMemo(()=>calcBMI(startWeightKg,heightCm),[startWeightKg,heightCm]); const ready=name.trim()&&heightCm&&startWeightKg;
+  const [name,setName]=useState(initial?.name||'');
+  const [age,setAge]=useState(initial?.age||'');
+  const [heightCm,setHeightCm]=useState(initial?.heightCm||'');
+  const [startWeightKg,setStartWeightKg]=useState(initial?.startWeightKg||'');
+  const [targetWeightKg,setTargetWeightKg]=useState(load(STORAGE.goals,{targetWeightKg:''})?.targetWeightKg||'');
+
+  const bmi=useMemo(()=>calcBMI(startWeightKg,heightCm),[startWeightKg,heightCm]);
+  const ready=name.trim()&&heightCm&&startWeightKg;
+
   return (<div className="screen"><h2>Willkommen bei LeanTrack</h2><p className="muted">Einmal Basisdaten eingeben. Später unter „Ziele“ änderbar.</p>
     <div className="card-group">
       <TextInput label="Name" value={name} onChange={setName} placeholder="Max"/>
@@ -79,7 +109,20 @@ function Onboarding({ initial, onComplete }){
     <div className="card-group" style={{marginTop:14}}>
       <div className="card-input"><label>BMI</label><div style={{display:'flex',alignItems:'baseline',gap:8}}><div style={{fontSize:26,fontWeight:700}}>{bmi ?? '—'}</div><div className="muted">{bmi? (bmi<18.5?'Untergewicht':bmi<25?'Normalgewicht':bmi<30?'Übergewicht':'Adipositas'):'—'}</div></div></div>
     </div>
-    <button className="btn primary" disabled={!ready} style={{marginTop:16}} onClick={()=>{ const profile={name:name.trim(),age,heightCm,startWeightKg}; const goals=load(STORAGE.goals,{ dailyCalories:'2000', dailyWaterMl:'2000', dailyProteinG:'120', targetWeightKg:'' }); goals.targetWeightKg=targetWeightKg; save(STORAGE.profile,profile); save(STORAGE.goals,goals); localStorage.setItem('lt_welcomed','0'); onComplete(profile,goals); }}>Fertig</button>
+    <button className="btn primary" disabled={!ready} style={{marginTop:20}}
+      onClick={()=>{
+        const profile = { name: name.trim(), age, heightCm, startWeightKg };
+        const defaults = { dailyCalories:"2000", dailyWaterMl:"2000", dailyProteinG:"120", targetWeightKg };
+        const goals = Object.assign(defaults, load(STORAGE.goals, {}));
+        goals.targetWeightKg = targetWeightKg;
+
+        save(STORAGE.profile, profile);
+        save(STORAGE.goals, goals);
+        localStorage.setItem("lt_welcomed", "0"); // Splash ab nächstem Start
+
+        onComplete({ profile, goals }); // Parent setzt State + lädt Tag + Tab=Heute
+      }}
+    >Fertig</button>
   </div>);
 }
 
@@ -222,41 +265,61 @@ function App(){
   const [goals,setGoals]=useState(load(STORAGE.goals,{ dailyCalories:"2000", dailyWaterMl:"2000", dailyProteinG:"120", targetWeightKg:"" }));
   const [state,setState]=useState(load(STORAGE.day + currentDate, {...EMPTY_DAY}));
 
+  // Persistenz
   useEffect(()=> save(STORAGE.profile,profile),[profile]);
   useEffect(()=> save(STORAGE.goals,goals),[goals]);
   useEffect(()=> save(STORAGE.day + currentDate,state),[state,currentDate]);
 
+  // Mitternachtswechsel
   useEffect(()=>{ const id=setInterval(()=>{ const t=todayISO(); if(t!==currentDate){ setCurrentDate(t); setState(load(STORAGE.day + t, {...EMPTY_DAY})); } }, 60000); return ()=> clearInterval(id); }, [currentDate]);
 
+  // Onboarding-Gate
   if(!profile || !profile.name || !profile.heightCm || !profile.startWeightKg){
-    return <Onboarding initial={profile||{}} onComplete={(p,g)=>{ setProfile(load(STORAGE.profile,null)); setGoals(load(STORAGE.goals,{})); }} />;
+    return (
+      <ErrorBoundary>
+        <Onboarding
+          initial={profile||{}}
+          onComplete={({ profile: p, goals: g })=>{
+            setProfile(p);
+            setGoals(g);
+            const t = todayISO();
+            setCurrentDate(t);
+            setState(load(STORAGE.day + t, {...EMPTY_DAY}));
+            setTab("today");
+          }}
+        />
+      </ErrorBoundary>
+    );
   }
 
+  // Splash ab 2. Start
   const [showSplash,setShowSplash]=useState(false);
-  useEffect(()=>{ const f=localStorage.getItem("lt_welcomed")||"0"; if(f==="0") localStorage.setItem("lt_welcomed","1"); else if(f==="1"){ setShowSplash(true); localStorage.setItem("lt_welcomed","2"); setTimeout(()=> setShowSplash(false), 1400);} }, []);
+  useEffect(()=>{ const f=localStorage.getItem("lt_welcomed")||"0"; if(f==="0") localStorage.setItem("lt_welcomed","1"); else if(f==="1"){ setShowSplash(true); localStorage.setItem("lt_welcomed","2"); const to=setTimeout(()=> setShowSplash(false), 1400); return ()=> clearTimeout(to);} }, []);
 
-  const toggleTheme=()=>{ const cur=getStoredTheme(); const next=cur==='dark'?'light':'dark'; applyTheme(next); };
+  const toggleTheme=()=>{ const cur=getStoredTheme(); applyTheme(cur==='dark'?'light':'dark'); };
 
   return (
-    <div className="app-wrapper">
-      <AppHeader onToggleTheme={toggleTheme} />
-      {showSplash ? (
-        <SplashScreen name={profile?.name}/>
-      ) : (
-        <>
-          {tab==="today"   && <Today  state={state} setState={setState} profile={profile} goals={goals} /> }
-          {tab==="trends"  && <Trends /> }
-          {tab==="goals"   && <Goals  profile={profile} setProfile={setProfile} goals={goals} setGoals={setGoals} /> }
-          {tab==="install" && <Install /> }
-          <div className="bottom-nav">
-            <TabButton label="Heute"        active={tab==="today"}   onClick={()=>setTab("today")}/>
-            <TabButton label="Trends"       active={tab==="trends"}  onClick={()=>setTab("trends")}/>
-            <TabButton label="Ziele"        active={tab==="goals"}   onClick={()=>setTab("goals")}/>
-            <TabButton label="Installieren" active={tab==="install"} onClick={()=>setTab("install")}/>
-          </div>
-        </>
-      )}
-    </div>
+    <ErrorBoundary>
+      <div className="app-wrapper">
+        <AppHeader onToggleTheme={toggleTheme} />
+        {showSplash ? (
+          <SplashScreen name={profile?.name}/>
+        ) : (
+          <>
+            {tab==="today"   && <Today  state={state} setState={setState} profile={profile} goals={goals} /> }
+            {tab==="trends"  && <Trends /> }
+            {tab==="goals"   && <Goals  profile={profile} setProfile={setProfile} goals={goals} setGoals={setGoals} /> }
+            {tab==="install" && <Install /> }
+            <div className="bottom-nav">
+              <TabButton label="Heute"        active={tab==="today"}   onClick={()=>setTab("today")}/>
+              <TabButton label="Trends"       active={tab==="trends"}  onClick={()=>setTab("trends")}/>
+              <TabButton label="Ziele"        active={tab==="goals"}   onClick={()=>setTab("goals")}/>
+              <TabButton label="Installieren" active={tab==="install"} onClick={()=>setTab("install")}/>
+            </div>
+          </>
+        )}
+      </div>
+    </ErrorBoundary>
   );
 }
 
