@@ -2,6 +2,9 @@
 // Tabs: Heute / Trends / Ziele / Patch Notes
 // Persistenz: localStorage
 // Onboarding: Name, Alter, Größe, Startgewicht, Zielgewicht + BMI
+// Theme-Handover von Landing (liest lt_seen_landing + lt_theme)
+// Progress für Kalorien, Wasser, Protein
+// NEU: Vollbild-Splash als eigener Screen – erst ab dem 2. App-Start nach Onboarding
 
 const { useState, useEffect, useMemo } = React;
 
@@ -23,9 +26,9 @@ const STORAGE = {
   patchSeen: 'lt_patch_seen'    // version string
 };
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.2';
 
-// ---------- BMI ----------
+// ---------- Helpers ----------
 function calcBMI(weightKg, heightCm){
   const h = Number(heightCm)/100;
   const w = Number(weightKg);
@@ -38,6 +41,13 @@ function bmiCategory(bmi){
   if (bmi < 25) return 'Normalgewicht';
   if (bmi < 30) return 'Übergewicht';
   return 'Adipositas';
+}
+function getGreeting(){
+  const h = new Date().getHours();
+  if (h < 11) return 'Guten Morgen';
+  if (h < 17) return 'Guten Tag';
+  if (h < 22) return 'Guten Abend';
+  return 'Gute Nacht';
 }
 
 // ---------- UI Primitives ----------
@@ -74,6 +84,22 @@ function TextInput({ label, value, onChange, placeholder }){
         value={value ?? ''}
         onChange={(e)=> onChange(e.target.value)}
       />
+    </div>
+  );
+}
+
+function ProgressBar({ value, max, unit }){
+  const v = Math.max(0, Number(value)||0);
+  const m = Math.max(0, Number(max)||0);
+  const pct = m>0 ? Math.min(100, Math.round((v/m)*100)) : 0;
+  return (
+    <div>
+      <div className="muted" style={{marginBottom:6}}>
+        {m>0 ? `${v}${unit? ' '+unit: ''} / ${m}${unit? ' '+unit: ''} (${pct}%)` : 'Kein Ziel gesetzt'}
+      </div>
+      <div style={{height:12, background:'var(--stroke)', borderRadius:999}}>
+        <div style={{width:pct+'%', height:'100%', background:'var(--success)', borderRadius:999}}></div>
+      </div>
     </div>
   );
 }
@@ -118,6 +144,8 @@ function Onboarding({ initial, onComplete }){
           goals.targetWeightKg = targetWeightKg;
           save(STORAGE.profile, profile);
           save(STORAGE.goals, goals);
+          // Splash erst beim nächsten App-Start zeigen → Flag initial auf 0
+          try { localStorage.setItem('lt_welcomed', '0'); } catch {}
           onComplete(profile, goals);
         }}>Fertig</button>
       </div>
@@ -130,22 +158,66 @@ function Today({ date, state, setState, profile, goals }) {
   const { weight, calories, water, protein } = state;
   const bmi = calcBMI(weight || profile?.startWeightKg, profile?.heightCm);
 
+  const kcalTarget = Number(goals?.dailyCalories)||0;
+  const kcalNow = Number(calories)||0;
+  const waterTarget = Number(goals?.dailyWaterMl)||0;
+  const waterNow = Number(water)||0;
+  const proteinTarget = Number(goals?.dailyProteinG)||0;
+  const proteinNow = Number(protein)||0;
+
   return (
     <div className="screen">
       <h2>Heute</h2>
       <div className="card-group">
-        <NumberInput label="Gewicht (kg)" value={weight}   placeholder="z. B. 88.9" onChange={(v)=> setState(s=>({...s, weight: v}))} />
-        <NumberInput label="Kalorien"      value={calories} placeholder="z. B. 1800" onChange={(v)=> setState(s=>({...s, calories: v}))} />
+        <NumberInput label="Gewicht (kg)" value={weight} placeholder="z. B. 88.9" onChange={(v)=> setState(s=>({...s, weight: v}))} />
+
+        <div className="card-input">
+          <label>Kalorien (heute)</label>
+          <input type="number" placeholder="z. B. 600" value={calories ?? ''} onChange={(e)=> setState(s=>({...s, calories: e.target.value}))} />
+          <div style={{display:'flex', gap:8, marginTop:8, flexWrap:'wrap'}}>
+            {[100,250,500].map(inc=> (
+              <button key={inc} className="btn" onClick={()=> setState(s=>({...s, calories: String((Number(s.calories)||0)+inc)}))}>+{inc}</button>
+            ))}
+            {kcalNow>0 && (
+              <button className="btn" onClick={()=> setState(s=>({...s, calories: String(Math.max(0,(Number(s.calories)||0)-100))}))}>-100</button>
+            )}
+          </div>
+          <div style={{marginTop:10}}>
+            <ProgressBar value={kcalNow} max={kcalTarget} unit="kcal" />
+          </div>
+        </div>
+
         <div className="card-input">
           <label>Wasser (ml)</label>
           <input type="number" placeholder="z. B. 1500" value={water ?? ''} onChange={(e)=> setState(s=>({...s, water: e.target.value}))} />
-          <div style={{display:"flex", gap:8, marginTop:8}}>
+          <div style={{display:"flex", gap:8, marginTop:8, flexWrap:'wrap'}}>
             {[250, 500].map(inc=> (
               <button key={inc} className="btn" onClick={()=> setState(s=>({...s, water: String((Number(s.water)||0)+inc)}))}>+{inc} ml</button>
             ))}
+            {waterNow>0 && (
+              <button className="btn" onClick={()=> setState(s=>({...s, water: String(Math.max(0,(Number(s.water)||0)-250))}))}>-250 ml</button>
+            )}
+          </div>
+          <div style={{marginTop:10}}>
+            <ProgressBar value={waterNow} max={waterTarget} unit="ml" />
           </div>
         </div>
-        <NumberInput label="Protein (g)" value={protein} placeholder="z. B. 150" onChange={(v)=> setState(s=>({...s, protein: v}))} />
+
+        <div className="card-input">
+          <label>Protein (g)</label>
+          <input type="number" placeholder="z. B. 150" value={protein ?? ''} onChange={(e)=> setState(s=>({...s, protein: e.target.value}))} />
+          <div style={{display:'flex', gap:8, marginTop:8, flexWrap:'wrap'}}>
+            {[10,25,50].map(inc=> (
+              <button key={inc} className="btn" onClick={()=> setState(s=>({...s, protein: String((Number(s.protein)||0)+inc)}))}>+{inc} g</button>
+            ))}
+            {proteinNow>0 && (
+              <button className="btn" onClick={()=> setState(s=>({...s, protein: String(Math.max(0,(Number(s.protein)||0)-10))}))}>-10 g</button>
+            )}
+          </div>
+          <div style={{marginTop:10}}>
+            <ProgressBar value={proteinNow} max={proteinTarget} unit="g" />
+          </div>
+        </div>
       </div>
 
       <div className="card-group" style={{marginTop:14}}>
@@ -157,7 +229,7 @@ function Today({ date, state, setState, profile, goals }) {
           </div>
         </div>
         <div className="card-input">
-          <label>Goal Tracker</label>
+          <label>Goal Tracker (Gewicht)</label>
           <GoalProgress profile={profile} goals={goals} currentWeight={weight} />
         </div>
       </div>
@@ -216,9 +288,9 @@ function Goals({ goals, setGoals, profile, setProfile }){
         <NumberInput label="Größe (cm)"       value={profile?.heightCm}    onChange={(v)=> setProfile(p=>({...p, heightCm:v}))}   placeholder="180" />
         <NumberInput label="Startgewicht (kg)"value={profile?.startWeightKg} onChange={(v)=> setProfile(p=>({...p, startWeightKg:v}))} placeholder="88.9" />
         <NumberInput label="Zielgewicht (kg)" value={goals.targetWeightKg} onChange={(v)=> setGoals(g=>({...g, targetWeightKg:v}))} placeholder="80" />
-        <NumberInput label="Tägliche Kalorien" value={goals.dailyCalories} onChange={(v)=> setGoals(g=>({...g, dailyCalories:v}))} placeholder="2000" />
-        <NumberInput label="Tägliches Wasser (ml)" value={goals.dailyWaterMl} onChange={(v)=> setGoals(g=>({...g, dailyWaterMl:v}))} placeholder="2000" />
-        <NumberInput label="Tägliches Protein (g)" value={goals.dailyProteinG} onChange={(v)=> setGoals(g=>({...g, dailyProteinG:v}))} placeholder="120" />
+        <NumberInput label="Tägliche Kalorien (Ziel)" value={goals.dailyCalories} onChange={(v)=> setGoals(g=>({...g, dailyCalories:v}))} placeholder="2000" />
+        <NumberInput label="Tägliches Wasser (ml, Ziel)" value={goals.dailyWaterMl} onChange={(v)=> setGoals(g=>({...g, dailyWaterMl:v}))} placeholder="2000" />
+        <NumberInput label="Tägliches Protein (g, Ziel)" value={goals.dailyProteinG} onChange={(v)=> setGoals(g=>({...g, dailyProteinG:v}))} placeholder="120" />
       </div>
       <div className="card-group" style={{marginTop:14}}>
         <div className="card-input">
@@ -235,10 +307,17 @@ function Goals({ goals, setGoals, profile, setProfile }){
 
 // ---------- Patch Notes ----------
 const PATCH_NOTES = [
+  { version: '1.0.2', date: '2025-11-04', items: [
+    'Vollbild-Splash (eigener Screen) mit persönlicher Begrüßung – ab 2. App-Start.',
+  ]},
+  { version: '1.0.1', date: '2025-11-04', items: [
+    'Theme-Handover von Landing.',
+    'Heute: Kalorien-, Wasser- und Protein-Progress inkl. +/- Buttons.',
+  ]},
   { version: '1.0.0', date: '2025-01-01', items: [
-    'Onboarding hinzugefügt (Name, Alter, Größe, Startgewicht, Zielgewicht).',
-    'BMI-Berechnung integriert (Heute + Ziele).',
-    'Goal Tracker mit Fortschrittsbalken.',
+    'Onboarding (Name, Alter, Größe, Startgewicht, Zielgewicht).',
+    'BMI-Berechnung (Heute + Ziele).',
+    'Goal Tracker (Gewicht).',
     'Portrait-Optimierung, keine horizontale Scrollbar, Bottom-Nav fixiert.',
   ]}
 ];
@@ -262,9 +341,26 @@ function PatchNotes(){
   );
 }
 
+// ---------- Splash Screen (Full) ----------
+function SplashScreen({ name }){
+  return (
+    <div className="splash-fullscreen">
+      <h1>{getGreeting()}, {name || 'du'} 🎉</h1>
+    </div>
+  );
+}
+
 // ---------- App Root ----------
 function App() {
   const [tab, setTab] = useState("today");
+
+  // Theme-Handover: Lese Theme aus Landing-LocalStorage und setze es auf die App
+  useEffect(()=>{
+    try{
+      const t = localStorage.getItem('leantrack_theme_lp') || localStorage.getItem('lt_theme') || 'system';
+      document.documentElement.setAttribute('data-theme', t);
+    }catch{}
+  },[]);
 
   // Profil & Ziele
   const [profile, setProfile] = useState(load(STORAGE.profile, null));
@@ -300,19 +396,45 @@ function App() {
     return <Onboarding initial={profile || {}} onComplete={(p, g)=>{ setProfile(p); setGoals(g); }} />
   }
 
+  // Splash-Logik: erst ab dem 2. App-Start nach Onboarding anzeigen
+  const [showSplash, setShowSplash] = useState(false);
+  useEffect(()=>{
+    try{
+      if (profile?.name){
+        const flag = localStorage.getItem('lt_welcomed') || '0';
+        if (flag === '0'){
+          // 1. Start nach Onboarding → Splash fürs nächste Mal vormerken
+          localStorage.setItem('lt_welcomed','1');
+        } else if (flag === '1') {
+          // 2. Start → Splash zeigen und dann auf "2" setzen
+          setShowSplash(true);
+          const t = setTimeout(()=> setShowSplash(false), 1400);
+          localStorage.setItem('lt_welcomed','2');
+          return ()=> clearTimeout(t);
+        }
+      }
+    }catch{}
+  }, [profile?.name]);
+
   return (
     <div className="app-wrapper">
-      {tab === "today"  && <Today date={todayISO()} state={state} setState={setState} profile={profile} goals={goals} /> }
-      {tab === "trends" && <Trends weightHistory={weightHistory} /> }
-      {tab === "goals"  && <Goals goals={goals} setGoals={setGoals} profile={profile} setProfile={setProfile} /> }
-      {tab === "patch"  && <PatchNotes /> }
+      {showSplash ? (
+        <SplashScreen name={profile?.name} />
+      ) : (
+        <>
+          {tab === "today"  && <Today date={todayISO()} state={state} setState={setState} profile={profile} goals={goals} /> }
+          {tab === "trends" && <Trends weightHistory={weightHistory} /> }
+          {tab === "goals"  && <Goals goals={goals} setGoals={setGoals} profile={profile} setProfile={setProfile} /> }
+          {tab === "patch"  && <PatchNotes /> }
 
-      <div className="bottom-nav">
-        <TabButton label="Heute"       active={tab === "today"}  onClick={()=>setTab("today")} />
-        <TabButton label="Trends"      active={tab === "trends"} onClick={()=>setTab("trends")} />
-        <TabButton label="Ziele"       active={tab === "goals"}  onClick={()=>setTab("goals")} />
-        <TabButton label="Patch Notes" active={tab === "patch"}  onClick={()=>setTab("patch")} />
-      </div>
+          <div className="bottom-nav">
+            <TabButton label="Heute"       active={tab === "today"}  onClick={()=>setTab("today")} />
+            <TabButton label="Trends"      active={tab === "trends"} onClick={()=>setTab("trends")} />
+            <TabButton label="Ziele"       active={tab === "goals"}  onClick={()=>setTab("goals")} />
+            <TabButton label="Patch Notes" active={tab === "patch"}  onClick={()=>setTab("patch")} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
