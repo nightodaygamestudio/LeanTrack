@@ -341,9 +341,9 @@ function Trends(){
                 aria-controls={`day-${d.date}`}
                 onClick={()=>toggle(d.date)}
               >
-                <div className="collapsible-title">
-                  <strong>{d.date}</strong>
-                  <span className="muted">Tippen für mehr Infos</span>
+                <div className="collapsible-title trend-title">
+                  <div className="trend-date">{d.date}</div>
+                  <div className="trend-hint">Tippen für mehr Infos
                 </div>
                 <span className={"chevron" + (open ? " rotate" : "")}>▾</span>
               </button>
