@@ -1,6 +1,5 @@
 // PWA Service Worker für LeanTrack
-// Erhöhe CACHE_NAME bei jeder relevanten UI-/JS-/CSS-Änderung.
-const CACHE_NAME = "leantrack-cache-v17";
+const CACHE_NAME = "leantrack-cache-v18";
 
 const ASSETS_TO_CACHE = [
   "./",
@@ -12,15 +11,11 @@ const ASSETS_TO_CACHE = [
   "./icons/icon-512.png"
 ];
 
-// Install: Assets in Cache legen
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE)));
   self.skipWaiting();
 });
 
-// Activate: alte Caches löschen
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -30,7 +25,6 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Fetch: Cache-First mit Update (stale-while-revalidate light)
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
@@ -44,7 +38,6 @@ self.addEventListener("fetch", (event) => {
           return res;
         })
         .catch(() => cached || caches.match("./index.html"));
-
       return cached || networkFetch;
     })
   );
