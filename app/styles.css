@@ -23,7 +23,6 @@ html[data-theme="system"]{ color-scheme: light dark; }
   }
 }
 
-
 /* ---------------- Global Layout ---------------- */
 
 *{ box-sizing:border-box }
@@ -52,7 +51,6 @@ body{
   gap:14px;
   margin-top:10px;
 }
-
 @media(min-width:760px){
   .card-group{ grid-template-columns:1fr 1fr; }
 }
@@ -97,7 +95,6 @@ body{
   background:var(--card);
   color:var(--text);
 }
-
 .btn.primary{
   background:var(--accent);
   color:#fff;
@@ -139,11 +136,8 @@ body{
   position:fixed;
   top:calc(22px + env(safe-area-inset-top));
   right:calc(22px + env(safe-area-inset-right));
-  width:44px;
-  height:44px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  width:44px; height:44px;
+  display:flex; align-items:center; justify-content:center;
 
   background:color-mix(in oklab, var(--surface), transparent 25%);
   backdrop-filter:blur(10px) saturate(180%);
@@ -153,8 +147,9 @@ body{
   cursor:pointer;
   z-index:10000;
 }
+.theme-toggle:active{ transform: translateY(1px); }
 
-/* ---------------- Splash Screen (Willkommen zurück) ---------------- */
+/* ---------------- Splash Screen ---------------- */
 .splash-fullscreen{
   position:fixed;
   inset:0;
@@ -170,71 +165,83 @@ body{
   animation:splashFade 0.3s ease-out;
   z-index:9999;
 }
-
-
-
 .splash-fullscreen h1{ margin:0; padding:0; }
-
 @keyframes splashFade { from{ opacity:0; } to{ opacity:1; } }
 
-/* Trends Collapsible */
+/* ---------------- Trends: aufklappbare Karten ---------------- */
+
 .card-collapsible { padding:0; overflow:hidden; }
 .collapsible-header{
-  width:100%; display:flex; justify-content:space-between; align-items:center;
-  background:transparent; border:0; cursor:pointer; padding:16px;
+  width:100%;
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px; background:transparent; border:0; color:var(--text);
+  padding:14px 14px; cursor:pointer;
 }
-.collapsible-title{ display:flex; flex-direction:column; }
-.chevron{ transition:.25s; }
-.chevron.rotate{ transform:rotate(180deg); }
+.collapsible-title{ display:flex; flex-direction:column; text-align:left; }
+.chevron{ transition: transform .2s ease; }
+.chevron.rotate{ transform: rotate(180deg); }
 
-.collapsible-body{ max-height:0; overflow:hidden; transition:max-height .3s ease; }
-.collapsible-body.open{ max-height:520px; }
-
-.collapsible-grid{
-  display:grid; gap:10px; padding:12px;
-  grid-template-columns:1fr 1fr;
-}
-.kv{ display:flex; justify-content:space-between; padding:8px 12px;
-     border-radius:12px; background:var(--card); border:1px solid var(--stroke);}
-
-/* ---------- Trends: Datum mittig, wie Tageskarten ---------- */
+/* Zentrierter Titel wie gefordert */
 .trend-title {
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;        /* ✅ Zentriert */
-  justify-content: center;
+  align-items: center;
   text-align: center;
 }
-
 .trend-date {
-  font-size: 20px;            /* ✅ Größer wie Überschrift */
+  font-size: 20px;
   font-weight: 700;
-  color: var(--text);         /* ✅ Weiß (oder Textfarbe im Theme) */
+  color: var(--text);
   margin-bottom: 2px;
 }
-
 .trend-hint {
-  font-size: 12px;            /* ✅ Klein + sekundär */
-  color: var(--muted);        /* ✅ Grau */
+  font-size: 12px;
+  color: var(--muted);
 }
 
-/* Trends Collapsible */
-.card-collapsible { padding:0; overflow:hidden; }
-.collapsible-header{
-  width:100%; display:flex; justify-content:space-between; align-items:center;
-  background:transparent; border:0; cursor:pointer; padding:16px;
+/* Collapsible Body – sanfte Ein-/Ausklapp-Animation (Höhe + Opazität + leichtes Slide) */
+.collapsible-body{
+  max-height:0;
+  overflow:hidden;
+  opacity:0;
+  transform: translateY(-4px) scale(0.995);
+  transition:
+    max-height .28s ease,
+    opacity .22s ease,
+    transform .28s ease;
+  border-top:1px solid var(--stroke);
 }
-.collapsible-title{ display:flex; flex-direction:column; }
-.chevron{ transition:.25s; }
-.chevron.rotate{ transform:rotate(180deg); }
-
-.collapsible-body{ max-height:0; overflow:hidden; transition:max-height .3s ease; }
-.collapsible-body.open{ max-height:520px; }
+.collapsible-body.open{
+  max-height:520px;
+  opacity:1;
+  transform: none;
+}
 
 .collapsible-grid{
-  display:grid; gap:10px; padding:12px;
+  display:grid;
   grid-template-columns:1fr 1fr;
+  gap:10px;
+  padding:12px 14px;
 }
-.kv{ display:flex; justify-content:space-between; padding:8px 12px;
-     border-radius:12px; background:var(--card); border:1px solid var(--stroke);}
+@media (min-width:760px){
+  .collapsible-grid{ grid-template-columns:repeat(4,1fr); }
+}
+.kv{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  background:var(--card);
+  border:1px solid var(--stroke);
+  border-radius:12px;
+  padding:10px 12px;
+}
+.kv .k{ color:var(--muted); font-size:12px; }
+.kv .v{ font-weight:600; }
+
+/* A11y */
+:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+/* Motion-Respect */
+@media (prefers-reduced-motion: reduce){
+  .collapsible-body{ transition:none; }
+  .chevron{ transition:none; }
+}
