@@ -86,8 +86,6 @@
 
   "hintEst": "Estimate based on your weight & inputs.",
 
-
-  
   "lp.tagline": "Open Source • PWA • 100% local",
   "lp.h1": "Track it. Improve it.",
   "lp.subtitle": "A minimalist fitness app for people who want results: weight, calories, water, protein. Offline. No account. On every device.",
@@ -100,5 +98,4 @@
   "lp.cta.label": "Ready to track progress?",
   "lp.cta.open": "Open Web App",
   "lp.footer.made": "Made with ❤️ by JJampion."
-
 }
