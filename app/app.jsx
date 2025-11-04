@@ -401,17 +401,84 @@ function Trends(){
   );
 }
 
-/* ---------- Ziele ---------- */
+/* ---------- Ziele & Profil (überarbeitet) ---------- */
 function Goals({ profile, setProfile, goals, setGoals }){
+  // Hilfsfunktionen bleiben unverändert vorhanden: calcBMI(...)
+  const startBMI = calcBMI(profile?.startWeightKg, profile?.heightCm);
+
   return (
     <div className="screen">
-      <h2>Ziele</h2>
+      <h2>Ziele & Profil</h2>
+
+      {/* Profil-Bereich */}
       <div className="card-group">
-        <TextInput   label="Name"                  value={profile?.name}        onChange={(v)=> setProfile(p=>({...p, name:v}))} />
-        <NumberInput label="Tägliche Kalorien"     value={goals.dailyCalories}  onChange={(v)=> setGoals(g=>({...g, dailyCalories:v}))} />
-        <NumberInput label="Tägliches Wasser (ml)" value={goals.dailyWaterMl}   onChange={(v)=> setGoals(g=>({...g, dailyWaterMl:v}))} />
-        <NumberInput label="Tägliches Protein (g)" value={goals.dailyProteinG}  onChange={(v)=> setGoals(g=>({...g, dailyProteinG:v}))} />
-        <NumberInput label="Zielgewicht (kg)"      value={goals.targetWeightKg} onChange={(v)=> setGoals(g=>({...g, targetWeightKg:v}))} />
+        <TextInput
+          label="Name"
+          value={profile?.name ?? ""}
+          onChange={(v)=> setProfile(p=>({...p, name:v}))}
+          placeholder="Max"
+        />
+        <NumberInput
+          label="Alter"
+          value={profile?.age ?? ""}
+          onChange={(v)=> setProfile(p=>({...p, age:v}))}
+          placeholder="30"
+        />
+        <NumberInput
+          label="Größe (cm)"
+          value={profile?.heightCm ?? ""}
+          onChange={(v)=> setProfile(p=>({...p, heightCm:v}))}
+          placeholder="180"
+        />
+        <NumberInput
+          label="Startgewicht (kg)"
+          value={profile?.startWeightKg ?? ""}
+          onChange={(v)=> setProfile(p=>({...p, startWeightKg:v}))}
+          placeholder="88.9"
+        />
+      </div>
+
+      {/* Info-Karte: BMI auf Basis Startdaten */}
+      <div className="card-group" style={{marginTop:14}}>
+        <div className="card-input">
+          <label>BMI (Start)</label>
+          <div style={{display:'flex', alignItems:'baseline', gap:8}}>
+            <div style={{fontSize:26, fontWeight:700}}>{startBMI ?? '—'}</div>
+            <div className="muted">
+              {startBMI
+                ? (startBMI < 18.5 ? 'Untergewicht' : startBMI < 25 ? 'Normalgewicht' : startBMI < 30 ? 'Übergewicht' : 'Adipositas')
+                : '—'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Ziele-Bereich */}
+      <div className="card-group" style={{marginTop:14}}>
+        <NumberInput
+          label="Zielgewicht (kg)"
+          value={goals?.targetWeightKg ?? ""}
+          onChange={(v)=> setGoals(g=>({...g, targetWeightKg:v}))}
+          placeholder="80"
+        />
+        <NumberInput
+          label="Tägliche Kalorien (Ziel)"
+          value={goals?.dailyCalories ?? ""}
+          onChange={(v)=> setGoals(g=>({...g, dailyCalories:v}))}
+          placeholder="2000"
+        />
+        <NumberInput
+          label="Tägliches Wasser (ml, Ziel)"
+          value={goals?.dailyWaterMl ?? ""}
+          onChange={(v)=> setGoals(g=>({...g, dailyWaterMl:v}))}
+          placeholder="2000"
+        />
+        <NumberInput
+          label="Tägliches Protein (g, Ziel)"
+          value={goals?.dailyProteinG ?? ""}
+          onChange={(v)=> setGoals(g=>({...g, dailyProteinG:v}))}
+          placeholder="120"
+        />
       </div>
     </div>
   );
