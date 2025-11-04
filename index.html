@@ -6,6 +6,7 @@
   <title>LeanTrack – Track it. Improve it.</title>
   <meta name="description" content="LeanTrack ist eine minimalistische, offene Fitness-PWA: Gewicht, Kalorien, Wasser, Protein – offline, ohne Account.">
   <meta name="theme-color" content="#0B0F19" id="meta-theme-color">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <style>
     :root{
       --surface:#0B0F19; --card:#111827; --stroke:#1F2937; --text:#E5E7EB; --muted:#9CA3AF; --accent:#3B82F6; --success:#22C55E; --shadow:0 10px 30px rgba(0,0,0,.25);
@@ -16,43 +17,44 @@
     [data-theme="system"]{ color-scheme: light dark; }
     @media (prefers-color-scheme: light){ [data-theme="system"]{ --bg:var(--surface-light); --panel:var(--card-light); --border:var(--stroke-light); --fg:var(--text-light); --fg-muted:var(--muted-light); } }
     @media (prefers-color-scheme: dark){ [data-theme="system"]{ --bg:var(--surface); --panel:var(--card); --border:var(--stroke); --fg:var(--text); --fg-muted:var(--muted); } }
+
     *{ box-sizing:border-box }
-    html,body{ height:100%; width:100%; max-width:100%; overflow-x:hidden; }
-    body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Inter,Arial,sans-serif; background:var(--bg); color:var(--fg); }
-    img,svg,video,canvas{ max-width:100%; height:auto; }
+    html,body{ height:100%; width:100%; max-width:100%; overflow-x:hidden }
+    body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Roboto,Inter,Arial,sans-serif; background:var(--bg); color:var(--fg) }
     a{ color:inherit; text-decoration:none }
-    .container{ width:min(100%,1100px); margin-inline:auto; padding:24px clamp(16px,4vw,24px); }
+    .container{ max-width:1100px; margin-inline:auto; padding:16px; }
+
+    /* Header: nur Logo, Name, GitHub-Link, Theme-Toggle */
     header{ position:sticky; top:0; backdrop-filter:saturate(180%) blur(8px); background:color-mix(in oklab, var(--bg), transparent 30%); border-bottom:1px solid var(--border); z-index:10 }
-    nav{ display:flex; align-items:center; justify-content:space-between; gap:16px; }
-    .brand{ display:flex; align-items:center; gap:12px; font-weight:600; font-size:18px }
-    .logo{ width:32px; height:32px; border-radius:9px; box-shadow:var(--shadow) }
+    nav{ display:flex; align-items:center; justify-content:space-between; gap:12px }
+    .brand{ display:flex; align-items:center; gap:10px; font-weight:700; font-size:18px }
+    .brand .logo{ width:28px; height:28px; border-radius:8px; box-shadow:var(--shadow) }
     .actions{ display:flex; align-items:center; gap:8px }
-    .btn{ min-height:44px; padding:10px 16px; border-radius:14px; border:1px solid var(--border); background:var(--panel); color:var(--fg); cursor:pointer }
-    .btn.primary{ background:var(--accent); color:white; border-color:transparent }
+    .btn{ min-height:40px; padding:8px 14px; border-radius:12px; border:1px solid var(--border); background:var(--panel); color:var(--fg); cursor:pointer }
     .btn.ghost{ background:transparent }
-    .theme-switch{ border-radius:12px; overflow:hidden; border:1px solid var(--border) }
-    .theme-switch button{ min-height:36px; padding:4px 10px; background:transparent; border:none; color:var(--fg); cursor:pointer }
-    .theme-switch button.active{ background:var(--panel); border-left:1px solid var(--border); border-right:1px solid var(--border) }
-    .hero{ padding:56px 0 24px; display:grid; grid-template-columns:1fr; gap:24px; align-items:center }
-    @media (min-width:900px){ .hero{ grid-template-columns:1.1fr 0.9fr; padding-top:32px } }
-    .hero h1{ font-size:clamp(28px,6vw,42px); line-height:1.1; margin:0 0 12px }
-    .hero p{ color:var(--fg-muted); margin:0 0 20px; font-size:clamp(15px,3.6vw,18px) }
-    .pill{ display:inline-flex; gap:8px; align-items:center; border:1px solid var(--border); background:var(--panel); padding:8px 12px; border-radius:999px; color:var(--fg-muted); font-size:14px }
-    .hero-card{ background:var(--panel); border:1px solid var(--border); border-radius:28px; padding:20px; box-shadow:var(--shadow) }
-    .grid{ display:grid; gap:18px }
-    .features{ grid-template-columns:repeat(3,1fr) }
-    @media (max-width:900px){ .features{ grid-template-columns:1fr } }
-    .card{ background:var(--panel); border:1px solid var(--border); border-radius:24px; padding:20px }
-    .card h3{ margin:0 0 8px; font-size:18px }
+
+    /* Floating Theme Toggle (🌓) im Header-Stil */
+    .theme-toggle{ width:40px; height:40px; display:flex; align-items:center; justify-content:center; border-radius:12px; border:1px solid var(--border); background:color-mix(in oklab,var(--bg),transparent 10%); }
+
+    /* Hero + Content */
+    main{ padding-bottom:calc(72px + env(safe-area-inset-bottom)); }
+    .hero{ padding:32px 0 10px; display:grid; grid-template-columns:1fr; gap:16px; align-items:center }
+    .pill{ display:inline-flex; gap:8px; align-items:center; border:1px solid var(--border); background:var(--panel); padding:6px 10px; border-radius:999px; color:var(--fg-muted); font-size:13px }
+    .hero h1{ font-size:clamp(28px,7vw,44px); line-height:1.1; margin:10px 0 8px }
+    .hero p{ color:var(--fg-muted); margin:0 0 6px; font-size:clamp(15px,3.8vw,18px) }
+
+    .grid{ display:grid; gap:14px }
+    .features{ grid-template-columns:1fr; }
+    @media (min-width:820px){ .features{ grid-template-columns:repeat(3,1fr) } }
+    .card{ background:var(--panel); border:1px solid var(--border); border-radius:22px; padding:16px; box-shadow:var(--shadow) }
+    .card h3{ margin:0 0 6px; font-size:18px }
     .muted{ color:var(--fg-muted) }
-    .kpis{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px }
-    .kpi{ background:var(--panel); border:1px solid var(--border); border-radius:20px; padding:16px; text-align:center }
-    .kpi .val{ font-size:28px; font-weight:700 }
-    .heatmap{ display:grid; grid-template-columns:repeat(7,1fr); gap:6px }
-    .cell{ height:22px; border-radius:6px; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:11px }
-    .section{ padding:40px 0 }
-    footer{ position:fixed; left:0; right:0; bottom:0; background:color-mix(in oklab,var(--bg),transparent 0%); border-top:1px solid var(--border); padding:12px calc(24px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left)); z-index:20; font-size:13px; color:var(--fg-muted) }
-    main{ padding-bottom:calc(80px + env(safe-area-inset-bottom)) }
+
+    /* Sticky Footer-CTA */
+    .cta-bar{ position:fixed; left:0; right:0; bottom:0; padding:10px clamp(14px,4vw,20px); padding-bottom:calc(10px + env(safe-area-inset-bottom)); border-top:1px solid var(--border); background:color-mix(in oklab, var(--bg), transparent 15%); backdrop-filter:saturate(160%) blur(10px); display:flex; justify-content:space-between; align-items:center; gap:10px; z-index:20 }
+    .cta-bar .btn.primary{ min-height:48px; border-radius:14px; }
+
+    footer{ margin-top:30px; border-top:1px solid var(--border); padding:18px 0; color:var(--fg-muted); font-size:13px }
   </style>
 </head>
 <body>
@@ -60,17 +62,15 @@
     <div class="container">
       <nav>
         <div class="brand">
-          <svg class="logo" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-label="LeanTrack Logo"><rect width="512" height="512" rx="120" fill="currentColor" opacity=".1"/><path d="M120 330 L220 250 L310 290 L400 180" stroke="#3B82F6" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+          <!-- Logo -->
+          <svg class="logo" viewBox="0 0 512 512" width="28" height="28" xmlns="http://www.w3.org/2000/svg" aria-label="LeanTrack Logo"><rect width="512" height="512" rx="120" fill="currentColor" opacity=".1"/><path d="M120 330 L220 250 L310 290 L400 180" stroke="var(--accent)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
           <span>LeanTrack</span>
         </div>
         <div class="actions">
-          <div class="theme-switch" role="tablist" aria-label="Theme">
-            <button id="t-dark" class="active" role="tab" aria-selected="true">Dunkel</button>
-            <button id="t-light" role="tab" aria-selected="false">Hell</button>
-            <button id="t-system" role="tab" aria-selected="false">System</button>
-          </div>
-          <a class="btn ghost" id="gh" href="https://github.com/<your-user>/leantrack" target="_blank" rel="noopener">GitHub</a>
-          <a class="btn" id="openApp" href="./app/" rel="noopener">Web-App öffnen</a>
+          <!-- Theme Toggle (nur Emoji-Button) -->
+          <button id="themeToggle" class="theme-toggle" aria-label="Theme wechseln">🌓</button>
+          <!-- GitHub Link bleibt -->
+          <a class="btn ghost" id="gh" href="https://github.com/nightodaygamestudio/LeanTrack" target="_blank" rel="noopener">GitHub</a>
         </div>
       </nav>
     </div>
@@ -82,37 +82,44 @@
         <span class="pill">Open Source • PWA • 100% lokal</span>
         <h1>Track it. Improve it.</h1>
         <p>Minimalistische Fitness-App für Menschen, die Ergebnisse wollen: Gewicht, Kalorien, Wasser, Protein. Offline. Ohne Account. Auf jedem Gerät.</p>
-        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px">
-          <a class="btn primary" id="installBtn" href="./app/" rel="noopener">Als App öffnen</a>
-          <a class="btn" href="./app/" rel="noopener">Jetzt starten</a>
-          <a class="btn ghost" href="#features">Features</a>
-        </div>
       </div>
-      <div class="hero-card">
-        <div class="kpis">
-          <div class="kpi"><div class="muted">Kalorien übrig</div><div class="val">480 kcal</div></div>
-          <div class="kpi"><div class="muted">Wasser</div><div class="val">1850 ml</div></div>
-          <div class="kpi"><div class="muted">Protein</div><div class="val">92 g</div></div>
+    </section>
+
+    <section class="container" id="features">
+      <div class="grid features">
+        <div class="card">
+          <h3>Installierbare PWA</h3>
+          <p class="muted">Homescreen-Icon, Vollbild, offline – wie eine native App, ohne Store.</p>
         </div>
-        <div style="height:12px"></div>
-        <div class="muted" style="margin:6px 0 10px">Wasser-Heatmap (Beispiel)</div>
-        <div class="heatmap" aria-hidden="true" title="Mock Heatmap">
-          <div class="cell" style="background:#e5e7eb22">Mo</div>
-          <div class="cell" style="background:hsl(210 90% 78%)"></div>
-          <div class="cell" style="background:hsl(210 90% 70%)"></div>
-          <div class="cell" style="background:hsl(210 90% 62%)"></div>
-          <div class="cell" style="background:hsl(210 90% 55%)"></div>
-          <div class="cell" style="background:hsl(210 90% 80%)"></div>
-          <div class="cell" style="background:hsl(210 90% 90%)"></div>
+        <div class="card">
+          <h3>100% lokal</h3>
+          <p class="muted">Daten bleiben auf deinem Gerät. Export/Import als JSON – volle Datenhoheit.</p>
+        </div>
+        <div class="card">
+          <h3>Trends & Ziele</h3>
+          <p class="muted">Gewichts-Trend, tägliche Ziele für Kalorien, Wasser und Protein. Klar. Transparent.</p>
         </div>
       </div>
     </section>
 
-    <section id="features" class="container section">
-      <div class="grid features">
-        <div class="card"><h3>Installierbare PWA</h3><p class="muted">Homescreen-Icon, Vollbild, offline – wie eine native App, ohne Store.</p></div>
-        <div class="card"><h3>100% lokal</h3><p class="muted">Daten bleiben auf deinem Gerät. Export/Import als JSON – volle Datenhoheit.</p></div>
-        <div class="card"><h3>Trends & Heatmap</h3><p class="muted">Gewichts-Trend (7-Tage-Mittel) und Wasser-Heatmap für saubere Gewohnheiten.</p></div>
+    <section class="container" id="open-source">
+      <div class="card" style="display:grid; grid-template-columns:1fr; gap:16px">
+        <div>
+          <h3>Open Source</h3>
+          <p class="muted">Keine Black Box. Prüfe, fork’ und verbessere den Code. LeanTrack ist MIT-lizenziert.</p>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px">
+            <a class="btn" href="https://github.com/nightodaygamestudio/LeanTrack" target="_blank" rel="noopener">Zum Repository</a>
+          </div>
+        </div>
+        <div>
+          <h3>Privacy by Design</h3>
+          <p class="muted">Keine Accounts, kein Tracking-Script, kein Verkauf von Daten. Punkt.</p>
+          <ul class="muted" style="margin:0; padding-left:18px">
+            <li>Nur localStorage</li>
+            <li>ICS-Reminder (Kalender), kein Push-Server</li>
+            <li>Service Worker für Offline</li>
+          </ul>
+        </div>
       </div>
     </section>
   </main>
@@ -124,22 +131,27 @@
     </div>
   </footer>
 
-  <script>
-    // Jahr im Footer
-    document.getElementById('year').textContent = new Date().getFullYear();
-    // Theme Toggle
-    const root=document.documentElement, metaTheme=document.getElementById('meta-theme-color');
-    const setTheme=(t)=>{ root.setAttribute('data-theme', t); metaTheme.setAttribute('content', t==='light' ? '#FFFFFF' : '#0B0F19'); localStorage.setItem('leantrack_theme_lp', t); document.querySelectorAll('.theme-switch button').forEach(b=>b.classList.remove('active')); document.getElementById('t-'+t).classList.add('active'); }
-    ['dark','light','system'].forEach(id=>document.getElementById('t-'+id).addEventListener('click',()=>setTheme(id)));
-    setTheme(localStorage.getItem('leantrack_theme_lp') || 'system');
+  <!-- Sticky CTA Footer (einziger Start-Button) -->
+  <div class="cta-bar" role="region" aria-label="App starten">
+    <span class="muted" style="font-size:14px">Bereit, Fortschritt zu tracken?</span>
+    <a class="btn primary" href="./" rel="noopener">Web‑App öffnen</a>
+  </div>
 
-    // Landing nur einmal zeigen → danach direkt in /app/
-    try{
-      const KEY='lt_seen_landing';
-      if(localStorage.getItem(KEY)==='1'){ location.replace('./app/'); }
-      document.getElementById('openApp')?.addEventListener('click',()=>localStorage.setItem(KEY,'1'));
-      document.getElementById('installBtn')?.addEventListener('click',()=>localStorage.setItem(KEY,'1'));
-    }catch{}
-  </script>
+<script>
+  // Year
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  // Theme persistence (Header 🌓 toggled)
+  const root = document.documentElement; const metaTheme = document.getElementById('meta-theme-color');
+  const applyTheme = (t)=>{ root.setAttribute('data-theme', t); metaTheme.setAttribute('content', t==='light' ? '#FFFFFF' : '#0B0F19'); localStorage.setItem('leantrack_theme_lp', t); localStorage.setItem('lt_theme', t); };
+  const getTheme = ()=> localStorage.getItem('leantrack_theme_lp') || localStorage.getItem('lt_theme') || 'system';
+  applyTheme(getTheme());
+
+  document.getElementById('themeToggle').addEventListener('click', ()=>{
+    const cur = getTheme();
+    const next = cur==='dark' ? 'light' : 'dark';
+    applyTheme(next);
+  });
+</script>
 </body>
 </html>
