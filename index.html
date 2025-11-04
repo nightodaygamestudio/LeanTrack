@@ -24,19 +24,17 @@
     a{ color:inherit; text-decoration:none }
     .container{ max-width:1100px; margin-inline:auto; padding:16px; }
 
-    /* Header: nur Logo, Name, GitHub-Link, Theme-Toggle */
+    /* Header */
     header{ position:sticky; top:0; backdrop-filter:saturate(180%) blur(8px); background:color-mix(in oklab, var(--bg), transparent 30%); border-bottom:1px solid var(--border); z-index:10 }
     nav{ display:flex; align-items:center; justify-content:space-between; gap:12px }
     .brand{ display:flex; align-items:center; gap:10px; font-weight:700; font-size:18px }
-    .brand .logo{ width:28px; height:28px; border-radius:8px; box-shadow:var(--shadow) }
+    .brand .logo{ width:40px; height:40px; border-radius:12px; box-shadow:var(--shadow) } /* ← 40x40 wie Buttons */
     .actions{ display:flex; align-items:center; gap:8px }
     .btn{ min-height:40px; padding:8px 14px; border-radius:12px; border:1px solid var(--border); background:var(--panel); color:var(--fg); cursor:pointer }
     .btn.ghost{ background:transparent }
-
-    /* Floating Theme Toggle (🌓) im Header-Stil */
     .theme-toggle{ width:40px; height:40px; display:flex; align-items:center; justify-content:center; border-radius:12px; border:1px solid var(--border); background:color-mix(in oklab,var(--bg),transparent 10%); }
 
-    /* Hero + Content */
+    /* Content */
     main{ padding-bottom:calc(72px + env(safe-area-inset-bottom)); }
     .hero{ padding:32px 0 10px; display:grid; grid-template-columns:1fr; gap:16px; align-items:center }
     .pill{ display:inline-flex; gap:8px; align-items:center; border:1px solid var(--border); background:var(--panel); padding:6px 10px; border-radius:999px; color:var(--fg-muted); font-size:13px }
@@ -50,9 +48,10 @@
     .card h3{ margin:0 0 6px; font-size:18px }
     .muted{ color:var(--fg-muted) }
 
-    /* Sticky Footer-CTA */
+    /* Sticky Footer CTA */
     .cta-bar{ position:fixed; left:0; right:0; bottom:0; padding:10px clamp(14px,4vw,20px); padding-bottom:calc(10px + env(safe-area-inset-bottom)); border-top:1px solid var(--border); background:color-mix(in oklab, var(--bg), transparent 15%); backdrop-filter:saturate(160%) blur(10px); display:flex; justify-content:space-between; align-items:center; gap:10px; z-index:20 }
     .cta-bar .btn.primary{ min-height:48px; border-radius:14px; }
+    .btn.primary{ background:var(--accent); color:#fff; border-color:transparent }
 
     footer{ margin-top:30px; border-top:1px solid var(--border); padding:18px 0; color:var(--fg-muted); font-size:13px }
   </style>
@@ -62,15 +61,16 @@
     <div class="container">
       <nav>
         <div class="brand">
-          <!-- Logo -->
-          <svg class="logo" viewBox="0 0 512 512" width="28" height="28" xmlns="http://www.w3.org/2000/svg" aria-label="LeanTrack Logo"><rect width="512" height="512" rx="120" fill="currentColor" opacity=".1"/><path d="M120 330 L220 250 L310 290 L400 180" stroke="var(--accent)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+          <!-- Logo 40x40 -->
+          <svg class="logo" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-label="LeanTrack Logo">
+            <rect width="512" height="512" rx="120" fill="currentColor" opacity=".1"/>
+            <path d="M120 330 L220 250 L310 290 L400 180" stroke="var(--accent)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
           <span>LeanTrack</span>
         </div>
         <div class="actions">
-          <!-- Theme Toggle (nur Emoji-Button) -->
           <button id="themeToggle" class="theme-toggle" aria-label="Theme wechseln">🌓</button>
-          <!-- GitHub Link bleibt -->
-          <a class="btn ghost" id="gh" href="https://github.com/nightodaygamestudio/LeanTrack/app" target="_blank" rel="noopener">GitHub</a>
+          <a class="btn ghost" id="gh" href="https://github.com/nightodaygamestudio/LeanTrack" target="_blank" rel="noopener">GitHub</a>
         </div>
       </nav>
     </div>
@@ -97,28 +97,7 @@
         </div>
         <div class="card">
           <h3>Trends & Ziele</h3>
-          <p class="muted">Gewichts-Trend, tägliche Ziele für Kalorien, Wasser und Protein. Klar. Transparent.</p>
-        </div>
-      </div>
-    </section>
-
-    <section class="container" id="open-source">
-      <div class="card" style="display:grid; grid-template-columns:1fr; gap:16px">
-        <div>
-          <h3>Open Source</h3>
-          <p class="muted">Keine Black Box. Prüfe, fork’ und verbessere den Code. LeanTrack ist MIT-lizenziert.</p>
-          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px">
-            <a class="btn" href="https://github.com/nightodaygamestudio/LeanTrack" target="_blank" rel="noopener">Zum Repository</a>
-          </div>
-        </div>
-        <div>
-          <h3>Privacy by Design</h3>
-          <p class="muted">Keine Accounts, kein Tracking-Script, kein Verkauf von Daten. Punkt.</p>
-          <ul class="muted" style="margin:0; padding-left:18px">
-            <li>Nur localStorage</li>
-            <li>ICS-Reminder (Kalender), kein Push-Server</li>
-            <li>Service Worker für Offline</li>
-          </ul>
+          <p class="muted">Gewichts-Trend, tägliche Ziele für Kalorien, Wasser und Protein.</p>
         </div>
       </div>
     </section>
@@ -131,22 +110,19 @@
     </div>
   </footer>
 
-  <!-- Sticky CTA Footer (einziger Start-Button) -->
   <div class="cta-bar" role="region" aria-label="App starten">
     <span class="muted" style="font-size:14px">Bereit, Fortschritt zu tracken?</span>
-    <a class="btn primary" href="./" rel="noopener">Web‑App öffnen</a>
+    <a class="btn primary" href="./app/" rel="noopener">Web-App öffnen</a>
   </div>
 
 <script>
-  // Year
   document.getElementById('year').textContent = new Date().getFullYear();
 
-  // Theme persistence (Header 🌓 toggled)
+  // Theme persistence
   const root = document.documentElement; const metaTheme = document.getElementById('meta-theme-color');
   const applyTheme = (t)=>{ root.setAttribute('data-theme', t); metaTheme.setAttribute('content', t==='light' ? '#FFFFFF' : '#0B0F19'); localStorage.setItem('leantrack_theme_lp', t); localStorage.setItem('lt_theme', t); };
   const getTheme = ()=> localStorage.getItem('leantrack_theme_lp') || localStorage.getItem('lt_theme') || 'system';
   applyTheme(getTheme());
-
   document.getElementById('themeToggle').addEventListener('click', ()=>{
     const cur = getTheme();
     const next = cur==='dark' ? 'light' : 'dark';
