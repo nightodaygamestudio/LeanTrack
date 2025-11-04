@@ -195,9 +195,9 @@ function Trends(){
             <div className="card-input card-collapsible">
               <button className="collapsible-header" aria-expanded={open}
                 onClick={()=>toggle(d.date)}>
-                <div className="collapsible-title">
-                  <strong>{d.date}</strong>
-                  <span className="muted">Tippen für mehr Infos</span>
+                <div className="collapsible-title trend-title">
+                  <div className="trend-date">{d.date}</div>
+                  <div className="trend-hint">Tippen für mehr Infos</div>
                 </div>
                 <span className={"chevron" + (open ? " rotate" : "")}>▾</span>
               </button>
