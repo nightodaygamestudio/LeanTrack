@@ -5,6 +5,7 @@
 // Theme-Handover (leantrack_theme_lp + lt_theme)
 // Tracking: Gewicht, Kalorien, Wasser, Protein, Schritte, Minuten, KM
 // Splash: Beim 2. Start, mit persönlicher Begrüßung
+// NEU: Tagesdatum lokal (nicht UTC) + automatischer Mitternachts-Rollover
 
 const { useState, useEffect, useMemo } = React;
 
@@ -14,7 +15,13 @@ const load = (key, fallback) => {
   catch { return fallback; }
 };
 const save = (key, value) => localStorage.setItem(key, JSON.stringify(value));
-const todayISO = () => new Date().toISOString().split("T")[0];
+
+/* ---------- Lokales ISO-Datum (YYYY-MM-DD, nicht UTC) ---------- */
+const pad2 = (n) => String(n).padStart(2, "0");
+const todayISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+};
 
 /* ---------- Keys ---------- */
 const STORAGE = {
@@ -41,7 +48,6 @@ function estimateActivityKcal({ weightKg, distanceKm, minutes, steps }){
   const s = Number(steps) || 0;
 
   if (w <= 0) {
-    // fallback-Heuristik, konservativ
     if (d) return Math.round(d * 55);
     if (s) return Math.round(s * 0.04);
     if (m) return Math.round(m * 2.5);
@@ -70,7 +76,6 @@ function loadAllDaysSortedDesc(){
       } catch {}
     }
   }
-  // YYYY-MM-DD lexikographisch sortierbar
   return days.sort((a,b)=> b.date.localeCompare(a.date));
 }
 
@@ -478,25 +483,40 @@ function ThemeToggle(){
 }
 
 /* ---------- Root ---------- */
+const EMPTY_DAY = { weight:"", calories:"", water:"", protein:"", steps:"", minutes:"", distanceKm:"" };
+
 function App(){
   const [tab, setTab] = useState("today");
 
   // Theme beim Start setzen
   useEffect(()=> { applyTheme(getStoredTheme()); }, []);
 
+  // Aktuelles Datum im State halten (für Mitternachts-Rollover)
+  const [currentDate, setCurrentDate] = useState(todayISO());
+
   // Daten
   const [profile, setProfile] = useState(load(STORAGE.profile, null));
   const [goals, setGoals]     = useState(load(STORAGE.goals, {
     dailyCalories:"2000", dailyWaterMl:"2000", dailyProteinG:"120", targetWeightKg:""
   }));
-  const [state, setState]     = useState(load(STORAGE.day + todayISO(), {
-    weight:"", calories:"", water:"", protein:"", steps:"", minutes:"", distanceKm:""
-  }));
+  const [state, setState]     = useState(load(STORAGE.day + currentDate, { ...EMPTY_DAY }));
 
   // Persistenz
   useEffect(()=> save(STORAGE.profile, profile), [profile]);
   useEffect(()=> save(STORAGE.goals, goals),     [goals]);
-  useEffect(()=> save(STORAGE.day + todayISO(), state), [state]);
+  useEffect(()=> save(STORAGE.day + currentDate, state), [state, currentDate]);
+
+  // Mitternachts-Rollover: alle 60s prüfen, ob Datum gewechselt hat → neuen Tagesstate laden
+  useEffect(()=>{
+    const id = setInterval(()=>{
+      const t = todayISO();
+      if (t !== currentDate) {
+        setCurrentDate(t);
+        setState(load(STORAGE.day + t, { ...EMPTY_DAY }));
+      }
+    }, 60_000);
+    return ()=> clearInterval(id);
+  }, [currentDate]);
 
   // Onboarding
   if (!profile || !profile.name || !profile.heightCm || !profile.startWeightKg) {
