@@ -1,5 +1,5 @@
-// LeanTrack – App Root (i18n ausgelagert, MenuSheet integriert)
-// React/JSX via Babel, keine harten STR/LANG-Objekte mehr.
+// LeanTrack – App Root (robustes i18n via fetch; MenuSheet; FirstRun; unit-aware UI)
+// Läuft im Browser mit React + Babel (type="text/babel")
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
@@ -74,6 +74,42 @@ function formatDateDE(iso){
   const [y,m,d]=iso.split("-");
   const mon=["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"][Math.max(1,Math.min(12,parseInt(m,10)))-1];
   return `${d}. ${mon} ${y}`;
+}
+
+/* ---------- i18n (robust via fetch, ohne ESM) ---------- */
+const I18N_MANIFEST_URL = '/app/i18n/manifest.json';
+const I18N_FALLBACK_EN_URL = '/app/i18n/en.json';
+const I18N_VERSION = 'v1'; // erhöhen, wenn Strings geändert werden
+
+async function fetchJsonNoCache(url) {
+  const bust = url.includes('?') ? `&v=${I18N_VERSION}` : `?v=${I18N_VERSION}`;
+  const res = await fetch(url + bust, { cache: 'reload' });
+  if (!res.ok) throw new Error(`i18n fetch failed: ${url} ${res.status}`);
+  return res.json();
+}
+async function i18nGetLanguages() {
+  const m = await fetchJsonNoCache(I18N_MANIFEST_URL);
+  if (!m || !Array.isArray(m.languages)) throw new Error('Invalid i18n manifest');
+  return m.languages;
+}
+async function i18nLoadStrings(code) {
+  const langs = await i18nGetLanguages();
+  const defCode = 'en';
+  const def = langs.find(l => l.code === defCode);
+  const req = langs.find(l => l.code === code) || def;
+
+  let base;
+  try { base = await fetchJsonNoCache(def?.path || I18N_FALLBACK_EN_URL); }
+  catch { base = {}; }
+
+  if (!req || req.code === defCode) return base;
+
+  try {
+    const overlay = await fetchJsonNoCache(req.path);
+    return { ...base, ...overlay };
+  } catch {
+    return base; // Fallback auf EN
+  }
 }
 
 /* ---------- UI Primitives ---------- */
@@ -244,7 +280,6 @@ function Onboarding({ initial, onComplete, t, units }){
 function Today({ state, setState, profile, goals, t, units }){
   const { weight, calories, water, protein, steps, minutes, distanceKm } = state;
 
-  // Gewicht
   const weightLabelUnit = units.weight==='kg'?t('weightUnitKg'):units.weight==='lb'?t('weightUnitLb'):t('weightUnitSt');
   const displayWeight = (() => {
     const kg = Number(weight||profile?.startWeightKg)||0;
@@ -260,7 +295,6 @@ function Today({ state, setState, profile, goals, t, units }){
     else setState(s=>({...s, weight: String(Math.round(stToKg(num)*10)/10)}));
   };
 
-  // Ziele
   const kcalTarget = Number(goals?.dailyCalories)||0;
   const proteinTarget = Number(goals?.dailyProteinG)||0;
 
@@ -297,7 +331,6 @@ function Today({ state, setState, profile, goals, t, units }){
     setState(s=>({...s, distanceKm: String(Math.max(0, km))}));
   };
 
-  // Aktivitäts-Schätzung
   const kcalBurn=estimateActivityKcal({
     weightKg: Number(weight||profile?.startWeightKg)||0,
     distanceKm: Number(distanceKm)||0,
@@ -382,7 +415,7 @@ function GoalProgress({ profile, goals, currentWeight }){
   return (<div><div className="muted" style={{marginBottom:6}}>{done.toFixed(1)} kg von {total.toFixed(1)} kg erreicht ({pct}%)</div><div style={{height:12, background:'var(--stroke)', borderRadius:999}}><div style={{width:pct+'%', height:'100%', background:'var(--success)', borderRadius:999}}></div></div></div>);
 }
 
-/* ---------- Trends (unit-aware Anzeige) ---------- */
+/* ---------- Trends (unit-aware Anzeige + Collapse) ---------- */
 function Trends({ t, units }){
   const [expanded,setExpanded]=useState(new Set());
   const days=useMemo(()=> loadAllDaysSortedDesc(), [units]);
@@ -713,39 +746,35 @@ const EMPTY_DAY={ weight:"", calories:"", water:"", protein:"", steps:"", minute
 function App(){
   useEffect(()=>{ applyTheme(getStoredTheme()); }, []);
 
-  // i18n: dynamischer Import des Loaders
-  const i18nModRef = useRef(null);
+  // i18n – Strings & verfügbare Sprachen (ohne ESM)
   const [availableLangs, setAvailableLangs] = useState([]);
   const [strings, setStrings] = useState(null);
-
   const [lang, _setLang] = useState(load(STORAGE.lang, null));
   const [units, _setUnits] = useState(load(STORAGE.units, null));
   const t = useCallback((key)=> (strings && strings[key]) || key, [strings]);
 
-  // Loader init & Strings/Lang-Liste holen
-  useEffect(()=>{
+  useEffect(() => {
     let cancelled = false;
-    (async ()=>{
-      if(!i18nModRef.current){
-        i18nModRef.current = await import('/app/i18n/i18n.js');
+    (async () => {
+      try {
+        const langs = await i18nGetLanguages();
+        if (!cancelled) setAvailableLangs(langs);
+      } catch {
+        if (!cancelled) setAvailableLangs([{ code: 'en', label: 'English', path: I18N_FALLBACK_EN_URL }]);
       }
-      const mod = i18nModRef.current;
-      try{
-        const langs = await mod.getLanguages();
-        if(!cancelled) setAvailableLangs(langs);
-      }catch{}
-      try{
-        const code = lang || 'en';
-        const s = await mod.loadStrings(code);
-        if(!cancelled) setStrings(s);
-      }catch{
-        try{
-          const s = await i18nModRef.current.loadStrings('en');
-          if(!cancelled) setStrings(s);
-        }catch{}
+      try {
+        const s = await i18nLoadStrings(lang || 'en');
+        if (!cancelled) setStrings(s);
+      } catch {
+        try {
+          const s = await fetchJsonNoCache(I18N_FALLBACK_EN_URL);
+          if (!cancelled) setStrings(s);
+        } catch {
+          if (!cancelled) setStrings({ appTitle: 'LeanTrack', today: 'Today', trends: 'Trends', goals: 'Goals' });
+        }
       }
     })();
-    return ()=> { cancelled = true; };
+    return () => { cancelled = true; };
   }, [lang]);
 
   const setLang = (code)=>{ _setLang(code); save(STORAGE.lang, code); };
@@ -774,10 +803,8 @@ function App(){
     return ()=> clearInterval(id);
   }, [currentDate]);
 
-  // First-Run (ohne Strings rendern wir eine schlanke Fallback-UI)
-  if (!strings) {
-    return <div className="screen"><div className="muted">Loading…</div></div>;
-  }
+  // First-Run
+  if (!strings) return <div className="screen"><div className="muted">Loading…</div></div>;
   if (!lang || !units){
     return (
       <FirstRun
@@ -832,7 +859,7 @@ function App(){
           {tab==="trends" && <Trends t={t} units={units}/> }
           {tab==="goals"  && <Goals  profile={profile} setProfile={setProfile} goals={goals} setGoals={setGoals} t={t} units={units}/> }
 
-          {/* Bottom-Nav: Heute | Trends | Ziele | Menü */}
+          {/* Bottom-Nav: Heute | Trends | Ziele | Menü (☰) */}
           <div className="bottom-nav">
             <TabButton label={t('today')}  active={tab==="today"}  onClick={()=>setTab("today")}/>
             <TabButton label={t('trends')} active={tab==="trends"} onClick={()=>setTab("trends")}/>
