@@ -197,3 +197,25 @@ body{
 .kv{ display:flex; justify-content:space-between; padding:8px 12px;
      border-radius:12px; background:var(--card); border:1px solid var(--stroke);}
 
+/* ---------- Trends: Datum mittig, wie Tageskarten ---------- */
+.trend-title {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;        /* ✅ Zentriert */
+  justify-content: center;
+  text-align: center;
+}
+
+.trend-date {
+  font-size: 20px;            /* ✅ Größer wie Überschrift */
+  font-weight: 700;
+  color: var(--text);         /* ✅ Weiß (oder Textfarbe im Theme) */
+  margin-bottom: 2px;
+}
+
+.trend-hint {
+  font-size: 12px;            /* ✅ Klein + sekundär */
+  color: var(--muted);        /* ✅ Grau */
+}
+
