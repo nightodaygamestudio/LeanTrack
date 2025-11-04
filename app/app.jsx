@@ -1,7 +1,9 @@
-// LeanTrack – Units-Fix (SI intern), Trends unit-aware, Menu in Bottom-Nav
-const { useState, useEffect, useMemo } = React;
+// LeanTrack – App Root (i18n ausgelagert, MenuSheet integriert)
+// React/JSX via Babel, keine harten STR/LANG-Objekte mehr.
 
-/* ---------- Storage + Helpers ---------- */
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+/* ---------- Storage & Utils ---------- */
 const STORAGE = {
   profile:'lt_profile',
   goals:'lt_goals',
@@ -23,103 +25,21 @@ const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad2
 function getStoredTheme(){ try{ return localStorage.getItem("leantrack_theme_lp") || localStorage.getItem("lt_theme") || "system"; }catch{ return "system"; } }
 function applyTheme(t){ try{ document.documentElement.setAttribute("data-theme", t); localStorage.setItem("leantrack_theme_lp", t); localStorage.setItem("lt_theme", t);}catch{} }
 
-/* ---------- i18n (DE/EN) ---------- */
-const LANGS = [
-  { code:"en", label:"English" }, { code:"de", label:"Deutsch" },
-  { code:"es", label:"Español" }, { code:"fr", label:"Français" },
-  { code:"pt", label:"Português" },{ code:"ru", label:"Русский" },
-  { code:"zh", label:"中文" },    { code:"hi", label:"हिन्दी" },
-  { code:"ar", label:"العربية" }, { code:"bn", label:"বাংলা" },
-  { code:"pa", label:"ਪੰਜਾਬੀ" }, { code:"ur", label:"اردو" },
-  { code:"id", label:"Bahasa Indonesia" }, { code:"tr", label:"Türkçe" },
-  { code:"it", label:"Italiano" }, { code:"pl", label:"Polski" },
-  { code:"uk", label:"Українська" }, { code:"nl", label:"Nederlands" },
-  { code:"sv", label:"Svenska" }, { code:"el", label:"Ελληνικά" }
-];
-
-const STR = {
-  en: {
-    appTitle: "LeanTrack",
-    today: "Today", trends: "Trends", goals: "Goals", menu: "Menu",
-    weight: "Weight", weightUnitKg: "kg", weightUnitLb: "lb", weightUnitSt: "st",
-    caloriesToday: "Calories (today)", water: "Water", waterUnitMl:"ml", waterUnitFlOz:"fl oz",
-    protein: "Protein (g)", activity: "Activity (walking)", steps: "Steps", minutes: "Minutes", km: "km", mi: "mi",
-    burned: "Burned (≈)", bmiToday: "BMI (today)", weightProgress: "Weight progress", noGoal: "No goal set",
-    name: "Name", age: "Age", height: "Height", heightCm:"cm", heightFt:"ft", heightIn:"in",
-    startWeight: "Start weight", targetWeight: "Target weight",
-    dailyCalories: "Daily calories (goal)", dailyWater: "Daily water (goal)", dailyProtein: "Daily protein (goal)",
-    onboardingTitle: "Welcome to LeanTrack", onboardingNote: "Enter base data once. You can change it later in \"Goals\".", done: "Done",
-    trendsHint: "Tap for more info",
-    theme: "Theme", menuInstall: "Install", menuLanguage: "Language", menuReminder: "Reminders", menuData: "Export / Import", menuUnits:"Units",
-    close: "Close",
-    installTitle: "Install to Home Screen",
-    androidSteps: ["Open Chrome/Brave", "Menu (⋮)", "Add to Home screen"],
-    iosSteps: ["Open Safari", "Share icon (⬆️)", "Add to Home Screen"],
-    desktopSteps: ["Open Chrome/Edge", "Click install icon in the address bar"],
-    reminderTitle: "Create reminder (ICS)", reminderWhat: "What is it for?", reminderWhen: "Time", reminderDays: "Repeat",
-    reminderDaily: "Daily", reminderWeekdays: "Specific days",
-    weekdayMo:"Mon", weekdayTu:"Tue", weekdayWe:"Wed", weekdayTh:"Thu", weekdayFr:"Fri", weekdaySa:"Sat", weekdaySu:"Sun",
-    exportICS: "Export .ics",
-    dataTitle: "Data", exportAll: "Export all data (.json)", importAll: "Import data (.json)", imported: "Imported.",
-    firstrunTitle:"Quick setup", chooseLanguage:"Choose language", chooseUnits:"Choose units",
-    unitsMetric:"Metric (kg, cm, ml, km)", unitsImperial:"US/Imperial (lb, ft/in, fl oz, mi)", unitsUK:"UK (st, ft/in, ml, mi)",
-    continue:"Continue",
-    hintEst: "Estimate based on your weight & inputs."
-  },
-  de: {
-    appTitle: "LeanTrack",
-    today: "Heute", trends: "Trends", goals: "Ziele", menu:"Menü",
-    weight: "Gewicht", weightUnitKg: "kg", weightUnitLb: "lb", weightUnitSt: "st",
-    caloriesToday: "Kalorien (heute)", water: "Wasser", waterUnitMl:"ml", waterUnitFlOz:"fl oz",
-    protein: "Protein (g)", activity: "Aktivität (Gehen)", steps: "Schritte", minutes: "Minuten", km: "km", mi:"mi",
-    burned: "Verbrannt (≈)", bmiToday: "BMI (heute)", weightProgress: "Gewichts-Fortschritt", noGoal: "Kein Ziel gesetzt",
-    name: "Name", age: "Alter", height: "Größe", heightCm:"cm", heightFt:"ft", heightIn:"in",
-    startWeight: "Startgewicht", targetWeight: "Zielgewicht",
-    dailyCalories: "Tägliche Kalorien (Ziel)", dailyWater: "Tägliches Wasser (Ziel)", dailyProtein: "Tägliches Protein (Ziel)",
-    onboardingTitle: "Willkommen bei LeanTrack", onboardingNote: "Bitte einmalig Basisdaten eingeben. Später in „Ziele“ änderbar.", done: "Fertig",
-    trendsHint: "Tippen für mehr Infos",
-    theme: "Theme", menuInstall: "Installieren", menuLanguage: "Sprache", menuReminder: "Reminder", menuData: "Export / Import", menuUnits:"Einheiten",
-    close: "Schließen",
-    installTitle: "Zum Startbildschirm hinzufügen",
-    androidSteps: ["Chrome/Brave öffnen", "Menü (⋮)", "Zum Startbildschirm hinzufügen"],
-    iosSteps: ["Safari öffnen", "Teilen-Icon (⬆️)", "Zum Home-Bildschirm"],
-    desktopSteps: ["Chrome/Edge öffnen", "Installations-Icon in der Adresszeile"],
-    reminderTitle: "Erinnerung erstellen (ICS)", reminderWhat:"Worum geht's?", reminderWhen:"Uhrzeit", reminderDays:"Wiederholen",
-    reminderDaily:"Täglich", reminderWeekdays:"Bestimmte Tage",
-    weekdayMo:"Mo", weekdayTu:"Di", weekdayWe:"Mi", weekdayTh:"Do", weekdayFr:"Fr", weekdaySa:"Sa", weekdaySu:"So",
-    exportICS:"Als .ics exportieren",
-    dataTitle:"Daten", exportAll:"Alle Daten exportieren (.json)", importAll:"Daten importieren (.json)", imported:"Importiert.",
-    firstrunTitle:"Schnelle Einrichtung", chooseLanguage:"Sprache wählen", chooseUnits:"Einheiten wählen",
-    unitsMetric:"Metrisch (kg, cm, ml, km)", unitsImperial:"US/Imperial (lb, ft/in, fl oz, mi)", unitsUK:"UK (st, ft/in, ml, mi)",
-    continue:"Weiter",
-    hintEst:"Schätzung, basierend auf Gewicht & Eingaben."
-  }
-};
-
-function tFactory(lang){
-  const base = STR.en, cur = STR[lang] || {};
-  return (key)=> (cur[key] ?? base[key] ?? key);
-}
-
-/* ---------- Units + Conversion (SI intern) ---------- */
+/* ---------- Units & Conversion (SI intern) ---------- */
 const DEFAULT_UNITS = { system:'metric', weight:'kg', height:'cm', volume:'ml', distance:'km' };
 const UNITS_PRESETS = {
   metric:  { system:'metric',  weight:'kg', height:'cm', volume:'ml',   distance:'km' },
   imperial:{ system:'imperial',weight:'lb', height:'ft', volume:'floz', distance:'mi' },
   uk:      { system:'uk',      weight:'st', height:'ft', volume:'ml',   distance:'mi' }
 };
-// weight
 const kgToLb = kg => kg*2.20462;
 const lbToKg = lb => lb/2.20462;
 const kgToSt = kg => kg/6.35029;
 const stToKg = st => st*6.35029;
-// height
 const cmToIn = cm => cm/2.54;
 const inToCm = inch => inch*2.54;
-// water
 const mlToFlOz = ml => ml/29.5735;
 const flOzToMl = oz => oz*29.5735;
-// distance
 const kmToMi = km => km/1.60934;
 const miToKm = mi => mi*1.60934;
 
@@ -156,19 +76,6 @@ function formatDateDE(iso){
   return `${d}. ${mon} ${y}`;
 }
 
-/* ---------- ErrorBoundary ---------- */
-class ErrorBoundary extends React.Component {
-  constructor(props){ super(props); this.state={error:null}; }
-  static getDerivedStateFromError(error){ return {error}; }
-  componentDidCatch(error, info){ console.error("LeanTrack Error:", error, info); }
-  render(){
-    if(this.state.error){
-      return (<div className="screen"><h2>Oops – error</h2><p className="muted">{String(this.state.error)}</p><button className="btn" onClick={()=>location.reload()}>Reload</button></div>);
-    }
-    return this.props.children;
-  }
-}
-
 /* ---------- UI Primitives ---------- */
 function TabButton({label, active, onClick}){ return <button className={active?"tab-btn active":"tab-btn"} onClick={onClick}>{label}</button>; }
 function TextInput({ label, value, onChange, placeholder }){ return (<div className="card-input"><label>{label}</label><input type="text" placeholder={placeholder} value={value ?? ''} onChange={(e)=> onChange(e.target.value)} /></div>); }
@@ -198,11 +105,8 @@ function AppHeader({ title, onToggleTheme }){
   );
 }
 
-/* ---------- First-Run (Language + Units) ---------- */
-function tFactoryWrapper(lang){ return tFactory(lang||'en'); }
-
-function FirstRun({ lang, setLang, units, setUnits, onContinue }){
-  const t = tFactoryWrapper(lang);
+/* ---------- First Run (Language + Units) ---------- */
+function FirstRun({ lang, setLang, units, setUnits, t, onContinue, availableLangs }){
   return (
     <div className="firstrun-fullscreen">
       <div className="firstrun-card">
@@ -210,7 +114,7 @@ function FirstRun({ lang, setLang, units, setUnits, onContinue }){
         <div className="card-input" style={{marginTop:12}}>
           <label>{t('chooseLanguage')}</label>
           <div className="chip-row">
-            {LANGS.map(l=>(
+            {(availableLangs||[]).map(l=>(
               <button key={l.code} className={"chip"+((lang||'en')===l.code?" active":"")} onClick={()=> setLang(l.code)}>{l.label}</button>
             ))}
           </div>
@@ -336,12 +240,11 @@ function Onboarding({ initial, onComplete, t, units }){
   </div>);
 }
 
-/* ---------- Today (SI intern speichern) ---------- */
+/* ---------- Today (SI intern, Anzeige je Unit) ---------- */
 function Today({ state, setState, profile, goals, t, units }){
-  // STATE: weight (kg), calories (kcal), water (ml!), protein (g), steps, minutes, distanceKm (km!)
   const { weight, calories, water, protein, steps, minutes, distanceKm } = state;
 
-  // Gewicht: Anzeige je nach Unit, Speicherung in kg bleibt unverändert (bereits implementiert)
+  // Gewicht
   const weightLabelUnit = units.weight==='kg'?t('weightUnitKg'):units.weight==='lb'?t('weightUnitLb'):t('weightUnitSt');
   const displayWeight = (() => {
     const kg = Number(weight||profile?.startWeightKg)||0;
@@ -361,7 +264,7 @@ function Today({ state, setState, profile, goals, t, units }){
   const kcalTarget = Number(goals?.dailyCalories)||0;
   const proteinTarget = Number(goals?.dailyProteinG)||0;
 
-  // Wasser: immer in ml speichern, Anzeige konvertieren
+  // Wasser (ml intern)
   const waterUnit = units.volume==='ml'?t('waterUnitMl'):t('waterUnitFlOz');
   const waterDisplay = units.volume==='ml'
     ? (water ?? '')
@@ -384,7 +287,7 @@ function Today({ state, setState, profile, goals, t, units }){
   const waterProgressValue = units.volume==='ml' ? (Number(water)||0) : Math.round(mlToFlOz(Number(water)||0));
   const waterProgressMax   = units.volume==='ml' ? (Number(goals?.dailyWaterMl)||0) : Math.round(mlToFlOz(Number(goals?.dailyWaterMl)||0));
 
-  // Distanz: immer km speichern, Anzeige konvertieren
+  // Distanz (km intern)
   const distanceDisplay = units.distance==='km'
     ? (distanceKm ?? '')
     : (distanceKm ? String(Math.round(kmToMi(Number(distanceKm))*100)/100) : '');
@@ -452,7 +355,7 @@ function Today({ state, setState, profile, goals, t, units }){
           <input type="number" placeholder={units.distance==='km'?t('km'):t('mi')} value={distanceDisplay} onChange={(e)=> setDistanceDisplay(e.target.value)}/>
           <div style={{display:'flex', alignItems:'center'}} className="muted">{t('hintEst')}</div>
         </div>
-        <div style={{marginTop:10}} className="muted">{t('burned')}: <strong>{kcalBurn}</strong> kcal</div>
+        <div className="muted" style={{marginTop:10}}>{t('burned')}: <strong>{kcalBurn}</strong> kcal</div>
       </div>
     </div>
 
@@ -482,13 +385,11 @@ function GoalProgress({ profile, goals, currentWeight }){
 /* ---------- Trends (unit-aware Anzeige) ---------- */
 function Trends({ t, units }){
   const [expanded,setExpanded]=useState(new Set());
-  // Neu: re-evaluieren, wenn Units wechseln (damit Anzeige live umrechnet)
   const days=useMemo(()=> loadAllDaysSortedDesc(), [units]);
   const toggle=(date)=> setExpanded(prev=>{ const next=new Set(prev); next.has(date)?next.delete(date):next.add(date); return next; });
   if(days.length===0) return (<div className="screen"><h2>{t('trends')}</h2><p className="muted">—</p></div>);
   return (<div className="screen"><h2>{t('trends')}</h2>
     {days.map(d=>{ const open=expanded.has(d.date);
-      // Anzeige in Units: wir gehen davon aus, dass d.weight in kg, d.water in ml, d.distanceKm in km gespeichert ist
       const weightDisp = (()=>{
         const kg=Number(d.weight)||0;
         if(units.weight==='kg') return kg? `${kg.toFixed(1)} kg`:'—';
@@ -616,7 +517,7 @@ function Goals({ profile, setProfile, goals, setGoals, t, units }){
 }
 
 /* ---------- Menu Sheet (Install, Language, Reminders, Data, Units) ---------- */
-function MenuSheet({ open, onClose, t, lang, setLang, units, setUnits }){
+function MenuSheet({ open, onClose, t, lang, setLang, units, setUnits, availableLangs }){
   const [section, setSection] = useState(null);
   const [installEvt, setInstallEvt] = useState(null);
   useEffect(()=>{
@@ -629,7 +530,6 @@ function MenuSheet({ open, onClose, t, lang, setLang, units, setUnits }){
     else setSection('install');
   };
 
-  const chooseLang = (code)=> { setLang(code); save(STORAGE.lang, code); };
   const applyUnitsPreset = (preset)=> { setUnits(preset); save(STORAGE.units, preset); };
 
   const [remTitle, setRemTitle] = useState(''); const [time, setTime] = useState('20:00');
@@ -716,7 +616,7 @@ function MenuSheet({ open, onClose, t, lang, setLang, units, setUnits }){
           <div className="card-input">
             <h3 style={{margin:'0 0 8px'}}>{t('menuLanguage')}</h3>
             <div className="chip-row" role="listbox" aria-label={t('menuLanguage')}>
-              {LANGS.map(l=>(
+              {(availableLangs||[]).map(l=>(
                 <button key={l.code}
                         className={"chip"+(lang===l.code?" active":"")}
                         onClick={()=> { setLang(l.code); save(STORAGE.lang, l.code); }}
@@ -765,9 +665,7 @@ function MenuSheet({ open, onClose, t, lang, setLang, units, setUnits }){
                 </div>
                 {mode==='weekdays' && (
                   <div style={{display:'flex', gap:8, flexWrap:'wrap', marginTop:8}}>
-                    {[['mo',t('weekdayMo')],['tu',t('weekdayTu')],['we',t('weekdayWe')],
-                      ['th',t('weekdayTh')],['fr',t('weekdayFr')],['sa',t('weekdaySa')],['su',t('weekdaySu')]]
-                      .map(([k,lab])=>(
+                    {[['mo','Mo'],['tu','Tu'],['we','We'],['th','Th'],['fr','Fr'],['sa','Sa'],['su','Su']].map(([k,lab])=>(
                       <button key={k} className={"chip"+(days[k]?" active":"")} onClick={()=> toggleDay(k)}>{lab}</button>
                     ))}
                   </div>
@@ -815,9 +713,40 @@ const EMPTY_DAY={ weight:"", calories:"", water:"", protein:"", steps:"", minute
 function App(){
   useEffect(()=>{ applyTheme(getStoredTheme()); }, []);
 
+  // i18n: dynamischer Import des Loaders
+  const i18nModRef = useRef(null);
+  const [availableLangs, setAvailableLangs] = useState([]);
+  const [strings, setStrings] = useState(null);
+
   const [lang, _setLang] = useState(load(STORAGE.lang, null));
   const [units, _setUnits] = useState(load(STORAGE.units, null));
-  const t = tFactory(lang || 'en');
+  const t = useCallback((key)=> (strings && strings[key]) || key, [strings]);
+
+  // Loader init & Strings/Lang-Liste holen
+  useEffect(()=>{
+    let cancelled = false;
+    (async ()=>{
+      if(!i18nModRef.current){
+        i18nModRef.current = await import('/app/i18n/i18n.js');
+      }
+      const mod = i18nModRef.current;
+      try{
+        const langs = await mod.getLanguages();
+        if(!cancelled) setAvailableLangs(langs);
+      }catch{}
+      try{
+        const code = lang || 'en';
+        const s = await mod.loadStrings(code);
+        if(!cancelled) setStrings(s);
+      }catch{
+        try{
+          const s = await i18nModRef.current.loadStrings('en');
+          if(!cancelled) setStrings(s);
+        }catch{}
+      }
+    })();
+    return ()=> { cancelled = true; };
+  }, [lang]);
 
   const setLang = (code)=>{ _setLang(code); save(STORAGE.lang, code); };
   const setUnits = (u)=>{ _setUnits(u); save(STORAGE.units, u); };
@@ -833,7 +762,7 @@ function App(){
   useEffect(()=> save(STORAGE.goals,goals),[goals]);
   useEffect(()=> save(STORAGE.day + currentDate,state),[state,currentDate]);
 
-  // Automatischer Tageswechsel (am Gerätestichtag)
+  // Tageswechsel (am Gerätestichtag)
   useEffect(()=>{
     const id=setInterval(()=>{
       const tISO=todayISO();
@@ -845,33 +774,33 @@ function App(){
     return ()=> clearInterval(id);
   }, [currentDate]);
 
-  // First-Run
+  // First-Run (ohne Strings rendern wir eine schlanke Fallback-UI)
+  if (!strings) {
+    return <div className="screen"><div className="muted">Loading…</div></div>;
+  }
   if (!lang || !units){
     return (
-      <ErrorBoundary>
-        <FirstRun
-          lang={lang||'en'} setLang={setLang}
-          units={units||DEFAULT_UNITS} setUnits={setUnits}
-          onContinue={()=> { if(!lang) setLang('en'); if(!units) setUnits(DEFAULT_UNITS); }}
-        />
-      </ErrorBoundary>
+      <FirstRun
+        lang={lang||'en'} setLang={setLang}
+        units={units||DEFAULT_UNITS} setUnits={setUnits}
+        t={t} availableLangs={availableLangs}
+        onContinue={()=> { if(!lang) setLang('en'); if(!units) setUnits(DEFAULT_UNITS); }}
+      />
     );
   }
 
   // Onboarding
   if(!profile || !profile.name || !profile.heightCm || !profile.startWeightKg){
     return (
-      <ErrorBoundary>
-        <Onboarding
-          initial={profile||{}}
-          onComplete={({ profile: p, goals: g })=>{
-            setProfile(p); setGoals(g);
-            const tISO=todayISO(); setCurrentDate(tISO); setState(load(STORAGE.day + tISO, {...EMPTY_DAY}));
-            setTab("today");
-          }}
-          t={t} units={units}
-        />
-      </ErrorBoundary>
+      <Onboarding
+        initial={profile||{}}
+        onComplete={({ profile: p, goals: g })=>{
+          setProfile(p); setGoals(g);
+          const tISO=todayISO(); setCurrentDate(tISO); setState(load(STORAGE.day + tISO, {...EMPTY_DAY}));
+          setTab("today");
+        }}
+        t={t} units={units}
+      />
     );
   }
 
@@ -893,30 +822,33 @@ function App(){
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <ErrorBoundary>
-      <div className="app-wrapper">
-        <AppHeader title={t('appTitle')} onToggleTheme={toggleTheme} />
-        {showSplash ? (
-          <SplashScreen name={profile?.name}/>
-        ) : (
-          <>
-            {tab==="today"  && <Today  state={state} setState={setState} profile={profile} goals={goals} t={t} units={units}/> }
-            {tab==="trends" && <Trends t={t} units={units}/> }
-            {tab==="goals"  && <Goals  profile={profile} setProfile={setProfile} goals={goals} setGoals={setGoals} t={t} units={units}/> }
+    <div className="app-wrapper">
+      <AppHeader title={t('appTitle')} onToggleTheme={toggleTheme} />
+      {showSplash ? (
+        <SplashScreen name={profile?.name}/>
+      ) : (
+        <>
+          {tab==="today"  && <Today  state={state} setState={setState} profile={profile} goals={goals} t={t} units={units}/> }
+          {tab==="trends" && <Trends t={t} units={units}/> }
+          {tab==="goals"  && <Goals  profile={profile} setProfile={setProfile} goals={goals} setGoals={setGoals} t={t} units={units}/> }
 
-            {/* Bottom-Nav: Heute | Trends | Ziele | Menü */}
-            <div className="bottom-nav">
-              <TabButton label={t('today')}  active={tab==="today"}  onClick={()=>setTab("today")}/>
-              <TabButton label={t('trends')} active={tab==="trends"} onClick={()=>setTab("trends")}/>
-              <TabButton label={t('goals')}  active={tab==="goals"}   onClick={()=>setTab("goals")}/>
-              <TabButton label="☰"           active={false}           onClick={()=> setMenuOpen(true)}/>
-            </div>
+          {/* Bottom-Nav: Heute | Trends | Ziele | Menü */}
+          <div className="bottom-nav">
+            <TabButton label={t('today')}  active={tab==="today"}  onClick={()=>setTab("today")}/>
+            <TabButton label={t('trends')} active={tab==="trends"} onClick={()=>setTab("trends")}/>
+            <TabButton label={t('goals')}  active={tab==="goals"}   onClick={()=>setTab("goals")}/>
+            <TabButton label="☰"           active={false}           onClick={()=> setMenuOpen(true)}/>
+          </div>
 
-            <MenuSheet open={menuOpen} onClose={()=> setMenuOpen(false)} t={t} lang={lang} setLang={setLang} units={units} setUnits={setUnits}/>
-          </>
-        )}
-      </div>
-    </ErrorBoundary>
+          <MenuSheet
+            open={menuOpen} onClose={()=> setMenuOpen(false)}
+            t={t} lang={lang} setLang={setLang}
+            units={units} setUnits={setUnits}
+            availableLangs={availableLangs}
+          />
+        </>
+      )}
+    </div>
   );
 }
 
