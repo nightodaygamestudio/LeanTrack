@@ -1,8 +1,9 @@
 // LeanTrack App (React, JSX via Babel)
-// Tabs: Heute / Trends / Ziele
+// Tabs: Heute / Trends / Ziele / Patch Notes
 // Persistenz: localStorage
+// Onboarding: Name, Alter, Größe, Startgewicht, Zielgewicht + BMI
 
-const { useState, useEffect } = React;
+const { useState, useEffect, useMemo } = React;
 
 // ---------- Storage Helpers ----------
 const load = (key, fallback) => {
@@ -10,11 +11,36 @@ const load = (key, fallback) => {
   catch { return fallback; }
 };
 const save = (key, value) => localStorage.setItem(key, JSON.stringify(value));
-
-// ---------- Utils ----------
 const todayISO = () => new Date().toISOString().split("T")[0];
 
-// ---------- Components ----------
+// ---------- Constants ----------
+const STORAGE = {
+  profile: 'lt_profile',        // { name, age, heightCm, startWeightKg }
+  goals: 'lt_goals',            // { targetWeightKg, dailyCalories, dailyWaterMl, dailyProteinG }
+  day: 'lt_day_',               // lt_day_YYYY-MM-DD → { weight, calories, water, protein }
+  weightHistory: 'lt_weight_hist',
+  seenLanding: 'lt_seen_landing',
+  patchSeen: 'lt_patch_seen'    // version string
+};
+
+const APP_VERSION = '1.0.0';
+
+// ---------- BMI ----------
+function calcBMI(weightKg, heightCm){
+  const h = Number(heightCm)/100;
+  const w = Number(weightKg);
+  if (!h || !w) return undefined;
+  return Number((w/(h*h)).toFixed(1));
+}
+function bmiCategory(bmi){
+  if (!bmi && bmi !== 0) return '';
+  if (bmi < 18.5) return 'Untergewicht';
+  if (bmi < 25) return 'Normalgewicht';
+  if (bmi < 30) return 'Übergewicht';
+  return 'Adipositas';
+}
+
+// ---------- UI Primitives ----------
 function TabButton({ label, active, onClick }) {
   return (
     <button className={active ? "tab-btn active" : "tab-btn"} onClick={onClick}>
@@ -29,64 +55,135 @@ function NumberInput({ label, value, onChange, placeholder }) {
       <label>{label}</label>
       <input
         type="number"
+        inputMode="decimal"
         placeholder={placeholder}
-        value={value}
+        value={value ?? ''}
         onChange={(e)=> onChange(e.target.value)}
       />
     </div>
   );
 }
 
-function Today({ state, setState }) {
-  const { weight, calories, water, protein } = state;
+function TextInput({ label, value, onChange, placeholder }){
+  return (
+    <div className="card-input">
+      <label>{label}</label>
+      <input
+        type="text"
+        placeholder={placeholder}
+        value={value ?? ''}
+        onChange={(e)=> onChange(e.target.value)}
+      />
+    </div>
+  );
+}
+
+// ---------- Onboarding ----------
+function Onboarding({ initial, onComplete }){
+  const [name, setName] = useState(initial?.name || '');
+  const [age, setAge] = useState(initial?.age || '');
+  const [heightCm, setHeightCm] = useState(initial?.heightCm || '');
+  const [startWeightKg, setStartWeightKg] = useState(initial?.startWeightKg || '');
+  const [targetWeightKg, setTargetWeightKg] = useState(load(STORAGE.goals, {targetWeightKg:''})?.targetWeightKg || '');
+
+  const bmi = useMemo(()=> calcBMI(startWeightKg, heightCm), [startWeightKg, heightCm]);
+  const ready = name.trim() && heightCm && startWeightKg;
 
   return (
     <div className="screen">
-      <h2>Heute</h2>
+      <h2>Willkommen bei LeanTrack</h2>
+      <p className="muted">Bitte einmalig deine Basisdaten eingeben. Du kannst alles später in „Ziele“ anpassen.</p>
       <div className="card-group">
-        <NumberInput
-          label="Gewicht (kg)"
-          value={weight}
-          placeholder="z. B. 88.9"
-          onChange={(v)=> setState(s=>({...s, weight: v}))}
-        />
-        <NumberInput
-          label="Kalorien"
-          value={calories}
-          placeholder="z. B. 1800"
-          onChange={(v)=> setState(s=>({...s, calories: v}))}
-        />
+        <TextInput   label="Name"              value={name}           onChange={setName}        placeholder="Max" />
+        <NumberInput label="Alter"             value={age}            onChange={setAge}         placeholder="z. B. 30" />
+        <NumberInput label="Größe (cm)"        value={heightCm}       onChange={setHeightCm}    placeholder="z. B. 180" />
+        <NumberInput label="Startgewicht (kg)" value={startWeightKg}  onChange={setStartWeightKg} placeholder="z. B. 88.9" />
+        <NumberInput label="Zielgewicht (kg)"  value={targetWeightKg} onChange={setTargetWeightKg} placeholder="z. B. 80" />
+      </div>
+
+      <div className="card-group" style={{marginTop:14}}>
         <div className="card-input">
-          <label>Wasser (ml)</label>
-          <input
-            type="number"
-            placeholder="z. B. 1500"
-            value={water}
-            onChange={(e)=> setState(s=>({...s, water: e.target.value}))}
-          />
-          <div style={{display:"flex", gap:8, marginTop:8}}>
-            {[250, 500].map(inc=> (
-              <button
-                key={inc}
-                className="btn"
-                onClick={()=> setState(s=>({...s, water: String((Number(s.water)||0)+inc)}))}
-              >
-                +{inc} ml
-              </button>
-            ))}
+          <label>BMI</label>
+          <div style={{display:'flex', alignItems:'baseline', gap:8}}>
+            <div style={{fontSize:26, fontWeight:700}}>{bmi ?? '—'}</div>
+            <div className="muted">{bmi ? bmiCategory(bmi) : '—'}</div>
           </div>
         </div>
-        <NumberInput
-          label="Protein (g)"
-          value={protein}
-          placeholder="z. B. 150"
-          onChange={(v)=> setState(s=>({...s, protein: v}))}
-        />
+      </div>
+
+      <div style={{display:'flex', gap:10, marginTop:16}}>
+        <button className="btn primary" disabled={!ready} onClick={()=>{
+          const profile = { name: name.trim(), age, heightCm, startWeightKg };
+          const goals = load(STORAGE.goals, { dailyCalories:'2000', dailyWaterMl:'2000', dailyProteinG:'120', targetWeightKg:'' });
+          goals.targetWeightKg = targetWeightKg;
+          save(STORAGE.profile, profile);
+          save(STORAGE.goals, goals);
+          onComplete(profile, goals);
+        }}>Fertig</button>
       </div>
     </div>
   );
 }
 
+// ---------- Today ----------
+function Today({ date, state, setState, profile, goals }) {
+  const { weight, calories, water, protein } = state;
+  const bmi = calcBMI(weight || profile?.startWeightKg, profile?.heightCm);
+
+  return (
+    <div className="screen">
+      <h2>Heute</h2>
+      <div className="card-group">
+        <NumberInput label="Gewicht (kg)" value={weight}   placeholder="z. B. 88.9" onChange={(v)=> setState(s=>({...s, weight: v}))} />
+        <NumberInput label="Kalorien"      value={calories} placeholder="z. B. 1800" onChange={(v)=> setState(s=>({...s, calories: v}))} />
+        <div className="card-input">
+          <label>Wasser (ml)</label>
+          <input type="number" placeholder="z. B. 1500" value={water ?? ''} onChange={(e)=> setState(s=>({...s, water: e.target.value}))} />
+          <div style={{display:"flex", gap:8, marginTop:8}}>
+            {[250, 500].map(inc=> (
+              <button key={inc} className="btn" onClick={()=> setState(s=>({...s, water: String((Number(s.water)||0)+inc)}))}>+{inc} ml</button>
+            ))}
+          </div>
+        </div>
+        <NumberInput label="Protein (g)" value={protein} placeholder="z. B. 150" onChange={(v)=> setState(s=>({...s, protein: v}))} />
+      </div>
+
+      <div className="card-group" style={{marginTop:14}}>
+        <div className="card-input">
+          <label>BMI (heute)</label>
+          <div style={{display:'flex', alignItems:'baseline', gap:8}}>
+            <div style={{fontSize:26, fontWeight:700}}>{bmi ?? '—'}</div>
+            <div className="muted">{bmi ? bmiCategory(bmi) : '—'}</div>
+          </div>
+        </div>
+        <div className="card-input">
+          <label>Goal Tracker</label>
+          <GoalProgress profile={profile} goals={goals} currentWeight={weight} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GoalProgress({ profile, goals, currentWeight }){
+  const start = Number(profile?.startWeightKg);
+  const target = Number(goals?.targetWeightKg);
+  const current = Number(currentWeight || start);
+  if (!start || !target) return <div className="muted">Bitte Start- und Zielgewicht setzen.</div>;
+  const total = start - target; // kg die runter sollen
+  const done = Math.max(0, start - current);
+  const pct = Math.max(0, Math.min(100, Math.round((done/total)*100)));
+  return (
+    <div>
+      <div className="muted" style={{marginBottom:6}}>{done.toFixed(1)} kg von {total.toFixed(1)} kg erreicht ({pct}%)</div>
+      <div style={{height:12, background:'var(--stroke)', borderRadius:999}}>
+        <div style={{width:pct+'%', height:'100%', background:'var(--success)', borderRadius:999}}></div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Trends ----------
 function Trends({ weightHistory }) {
   return (
     <div className="screen">
@@ -107,36 +204,60 @@ function Trends({ weightHistory }) {
   );
 }
 
-function Goals({ goals, setGoals }) {
+// ---------- Goals ----------
+function Goals({ goals, setGoals, profile, setProfile }){
+  const bmi = calcBMI(profile?.startWeightKg, profile?.heightCm);
   return (
     <div className="screen">
-      <h2>Ziele</h2>
+      <h2>Ziele & Profil</h2>
       <div className="card-group">
-        <NumberInput
-          label="Tägliche Kalorien (kcal)"
-          value={goals.dailyCalories}
-          placeholder="z. B. 2000"
-          onChange={(v)=> setGoals(g=>({...g, dailyCalories: v}))}
-        />
-        <NumberInput
-          label="Tägliches Wasser (ml)"
-          value={goals.dailyWaterMl}
-          placeholder="z. B. 2000"
-          onChange={(v)=> setGoals(g=>({...g, dailyWaterMl: v}))}
-        />
-        <NumberInput
-          label="Tägliches Protein (g)"
-          value={goals.dailyProteinG}
-          placeholder="z. B. 120"
-          onChange={(v)=> setGoals(g=>({...g, dailyProteinG: v}))}
-        />
-        <NumberInput
-          label="Zielgewicht (kg)"
-          value={goals.targetWeightKg}
-          placeholder="z. B. 80"
-          onChange={(v)=> setGoals(g=>({...g, targetWeightKg: v}))}
-        />
+        <TextInput   label="Name"             value={profile?.name}        onChange={(v)=> setProfile(p=>({...p, name:v}))}       placeholder="Max" />
+        <NumberInput label="Alter"            value={profile?.age}         onChange={(v)=> setProfile(p=>({...p, age:v}))}        placeholder="30" />
+        <NumberInput label="Größe (cm)"       value={profile?.heightCm}    onChange={(v)=> setProfile(p=>({...p, heightCm:v}))}   placeholder="180" />
+        <NumberInput label="Startgewicht (kg)"value={profile?.startWeightKg} onChange={(v)=> setProfile(p=>({...p, startWeightKg:v}))} placeholder="88.9" />
+        <NumberInput label="Zielgewicht (kg)" value={goals.targetWeightKg} onChange={(v)=> setGoals(g=>({...g, targetWeightKg:v}))} placeholder="80" />
+        <NumberInput label="Tägliche Kalorien" value={goals.dailyCalories} onChange={(v)=> setGoals(g=>({...g, dailyCalories:v}))} placeholder="2000" />
+        <NumberInput label="Tägliches Wasser (ml)" value={goals.dailyWaterMl} onChange={(v)=> setGoals(g=>({...g, dailyWaterMl:v}))} placeholder="2000" />
+        <NumberInput label="Tägliches Protein (g)" value={goals.dailyProteinG} onChange={(v)=> setGoals(g=>({...g, dailyProteinG:v}))} placeholder="120" />
       </div>
+      <div className="card-group" style={{marginTop:14}}>
+        <div className="card-input">
+          <label>BMI (Start)</label>
+          <div style={{display:'flex', alignItems:'baseline', gap:8}}>
+            <div style={{fontSize:26, fontWeight:700}}>{bmi ?? '—'}</div>
+            <div className="muted">{bmi ? bmiCategory(bmi) : '—'}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Patch Notes ----------
+const PATCH_NOTES = [
+  { version: '1.0.0', date: '2025-01-01', items: [
+    'Onboarding hinzugefügt (Name, Alter, Größe, Startgewicht, Zielgewicht).',
+    'BMI-Berechnung integriert (Heute + Ziele).',
+    'Goal Tracker mit Fortschrittsbalken.',
+    'Portrait-Optimierung, keine horizontale Scrollbar, Bottom-Nav fixiert.',
+  ]}
+];
+
+function PatchNotes(){
+  return (
+    <div className="screen">
+      <h2>Patch Notes</h2>
+      {PATCH_NOTES.map(note=> (
+        <div key={note.version} className="card-input" style={{marginTop:12}}>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline'}}>
+            <strong>v{note.version}</strong>
+            <span className="muted">{note.date}</span>
+          </div>
+          <ul style={{margin:'8px 0 0 18px'}}>
+            {note.items.map((it, i)=> <li key={i}>{it}</li>)}
+          </ul>
+        </div>
+      ))}
     </div>
   );
 }
@@ -145,52 +266,52 @@ function Goals({ goals, setGoals }) {
 function App() {
   const [tab, setTab] = useState("today");
 
-  // Tageswerte
-  const [state, setState] = useState({
-    weight: load("weight", ""),
-    calories: load("calories", ""),
-    water: load("water", ""),
-    protein: load("protein", "")
-  });
+  // Profil & Ziele
+  const [profile, setProfile] = useState(load(STORAGE.profile, null));
+  const [goals, setGoals] = useState(load(STORAGE.goals, {
+    dailyCalories: '2000', dailyWaterMl: '2000', dailyProteinG: '120', targetWeightKg: ''
+  }));
 
-  // Ziele
-  const [goals, setGoals] = useState(load("goals", {
-    dailyCalories: "2000",
-    dailyWaterMl: "2000",
-    dailyProteinG: "120",
-    targetWeightKg: ""
+  // Tageswerte
+  const [state, setState] = useState(load(STORAGE.day + todayISO(), {
+    weight: '', calories: '', water: '', protein: ''
   }));
 
   // Historie (Gewicht)
-  const [weightHistory, setWeightHistory] = useState(load("weightHistory", []));
+  const [weightHistory, setWeightHistory] = useState(load(STORAGE.weightHistory, []));
 
   // Persistenz
-  useEffect(()=> save("weight", state.weight), [state.weight]);
-  useEffect(()=> save("calories", state.calories), [state.calories]);
-  useEffect(()=> save("water", state.water), [state.water]);
-  useEffect(()=> save("protein", state.protein), [state.protein]);
-  useEffect(()=> save("goals", goals), [goals]);
+  useEffect(()=> save(STORAGE.profile, profile), [profile]);
+  useEffect(()=> save(STORAGE.goals, goals), [goals]);
+  useEffect(()=> save(STORAGE.day + todayISO(), state), [state]);
 
   // Automatisches Tagesgewicht-Logging
   useEffect(()=>{
     if (!state.weight) return;
     const date = todayISO();
-    const list = load("weightHistory", []);
+    const list = load(STORAGE.weightHistory, []);
     const updated = [...list.filter(x=>x.date!==date), { date, value: state.weight }];
     setWeightHistory(updated);
-    save("weightHistory", updated);
+    save(STORAGE.weightHistory, updated);
   }, [state.weight]);
+
+  // Onboarding Gate
+  if (!profile || !profile.heightCm || !profile.startWeightKg || !profile.name) {
+    return <Onboarding initial={profile || {}} onComplete={(p, g)=>{ setProfile(p); setGoals(g); }} />
+  }
 
   return (
     <div className="app-wrapper">
-      {tab === "today"  && <Today state={state} setState={setState} /> }
+      {tab === "today"  && <Today date={todayISO()} state={state} setState={setState} profile={profile} goals={goals} /> }
       {tab === "trends" && <Trends weightHistory={weightHistory} /> }
-      {tab === "goals"  && <Goals goals={goals} setGoals={setGoals} /> }
+      {tab === "goals"  && <Goals goals={goals} setGoals={setGoals} profile={profile} setProfile={setProfile} /> }
+      {tab === "patch"  && <PatchNotes /> }
 
       <div className="bottom-nav">
-        <TabButton label="Heute"  active={tab==="today"}  onClick={()=>setTab("today")} />
-        <TabButton label="Trends" active={tab==="trends"} onClick={()=>setTab("trends")} />
-        <TabButton label="Ziele"  active={tab==="goals"}  onClick={()=>setTab("goals")} />
+        <TabButton label="Heute"       active={tab === "today"}  onClick={()=>setTab("today")} />
+        <TabButton label="Trends"      active={tab === "trends"} onClick={()=>setTab("trends")} />
+        <TabButton label="Ziele"       active={tab === "goals"}  onClick={()=>setTab("goals")} />
+        <TabButton label="Patch Notes" active={tab === "patch"}  onClick={()=>setTab("patch")} />
       </div>
     </div>
   );
