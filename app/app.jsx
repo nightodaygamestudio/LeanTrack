@@ -2,7 +2,7 @@
 // Tabs: Heute / Trends / Ziele / Install
 // Persistenz: localStorage
 // Onboarding: Name, Alter, Größe, Startgewicht, Zielgewicht + BMI
-// Theme-Handover von Landing (liest leantrack_theme_lp + lt_theme)
+// Theme-Handover (leantrack_theme_lp + lt_theme)
 // Tracking: Gewicht, Kalorien, Wasser, Protein, Schritte, Minuten, KM
 // Splash: Beim 2. Start, mit persönlicher Begrüßung
 
@@ -20,7 +20,7 @@ const todayISO = () => new Date().toISOString().split("T")[0];
 const STORAGE = {
   profile: 'lt_profile',
   goals: 'lt_goals',
-  day: 'lt_day_',
+  day: 'lt_day_',            // lt_day_YYYY-MM-DD → { weight, calories, water, protein, steps, minutes, distanceKm }
   weightHistory: 'lt_weight_hist',
   seenLanding: 'lt_seen_landing',
 };
@@ -33,13 +33,76 @@ function calcBMI(weightKg, heightCm){
   return Number((w/(h*h)).toFixed(1));
 }
 
-/* kcal verbrannt (≈) */
+/** kcal verbrannt (≈) – Priorität: Distanz > Minuten (MET 3.3) > Schritte */
 function estimateActivityKcal({ weightKg, distanceKm, minutes, steps }){
-  const w = Number(weightKg) || 80;
-  if (distanceKm) return Math.round(distanceKm * 55); // Spaziergang grob 55 kcal / km
-  if (steps)      return Math.round(steps * 0.04);   // 0.04 kcal pro Schritt (faustregel)
-  if (minutes)    return Math.round(minutes * (w * 0.04)); // leichtes Gehen ~0.04 * kg * min
+  const w = Number(weightKg) || 0;
+  const d = Number(distanceKm) || 0;
+  const m = Number(minutes) || 0;
+  const s = Number(steps) || 0;
+
+  if (w <= 0) {
+    // fallback-Heuristik, konservativ
+    if (d) return Math.round(d * 55);
+    if (s) return Math.round(s * 0.04);
+    if (m) return Math.round(m * 2.5);
+    return 0;
+  }
+
+  if (d > 0) return Math.max(0, Math.round(w * 0.8 * d));
+  if (m > 0) return Math.max(0, Math.round((3.3 * 3.5 * w / 200) * m));
+  if (s > 0) {
+    const estKm = s * 0.00075;
+    return Math.max(0, Math.round(w * 0.8 * estKm));
+  }
   return 0;
+}
+
+/** Alle lt_day_*-Einträge laden und NEUSTE zuerst sortieren */
+function loadAllDaysSortedDesc(){
+  const days = [];
+  for (let i=0; i<localStorage.length; i++){
+    const k = localStorage.key(i);
+    if (k && k.startsWith(STORAGE.day)){
+      const date = k.replace(STORAGE.day, "");
+      try {
+        const obj = JSON.parse(localStorage.getItem(k)) || {};
+        days.push({ date, ...obj });
+      } catch {}
+    }
+  }
+  // YYYY-MM-DD lexikographisch sortierbar
+  return days.sort((a,b)=> b.date.localeCompare(a.date));
+}
+
+/** Datum „YYYY-MM-DD“ → „DD. Mon YYYY“ (de) */
+function formatDateDE(iso){
+  if (!iso || typeof iso !== 'string' || iso.length < 10) return iso || '';
+  const [y,m,d] = iso.split('-');
+  const months = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+  const mm = Math.max(1, Math.min(12, parseInt(m,10)));
+  return `${d}. ${months[mm-1]} ${y}`;
+}
+
+/** Theme (Landing ↔ App konsistent) */
+function getStoredTheme(){
+  try { return localStorage.getItem("leantrack_theme_lp") || localStorage.getItem("lt_theme") || "system"; }
+  catch { return "system"; }
+}
+function applyTheme(t){
+  try {
+    document.documentElement.setAttribute("data-theme", t);
+    localStorage.setItem("leantrack_theme_lp", t);
+    localStorage.setItem("lt_theme", t);
+  } catch {}
+}
+
+/** Greeting */
+function greet(){
+  const h = new Date().getHours();
+  if (h < 11) return "Guten Morgen";
+  if (h < 17) return "Guten Tag";
+  if (h < 22) return "Guten Abend";
+  return "Gute Nacht";
 }
 
 /* ---------- UI Components ---------- */
@@ -133,7 +196,9 @@ function Onboarding({ initial, onComplete }){
       <button className="btn primary" disabled={!ready} style={{marginTop:20}}
         onClick={()=>{
           save(STORAGE.profile, { name, age, heightCm, startWeightKg });
-          save(STORAGE.goals, load(STORAGE.goals, {}));
+          const g = load(STORAGE.goals, { dailyCalories:"2000", dailyWaterMl:"2000", dailyProteinG:"120", targetWeightKg });
+          g.targetWeightKg = targetWeightKg;
+          save(STORAGE.goals, g);
           localStorage.setItem("lt_welcomed", "0");
           onComplete();
         }}>Fertig</button>
@@ -142,38 +207,126 @@ function Onboarding({ initial, onComplete }){
 }
 
 /* ---------- Today ---------- */
-function Today({ state, setState, profile, goals }) {
+function GoalProgress({ profile, goals, currentWeight }){
+  const start = Number(profile?.startWeightKg);
+  const target = Number(goals?.targetWeightKg);
+  const current = Number(currentWeight || start);
+  if (!start || !target) return <div className="muted">Bitte Start- und Zielgewicht setzen.</div>;
+  const total = start - target;
+  const done  = Math.max(0, start - current);
+  const pct   = Math.max(0, Math.min(100, Math.round((done/total)*100)));
+  return (
+    <div>
+      <div className="muted" style={{marginBottom:6}}>
+        {done.toFixed(1)} kg von {total.toFixed(1)} kg erreicht ({pct}%)
+      </div>
+      <div style={{height:12, background:"var(--stroke)", borderRadius:999}}>
+        <div style={{width:pct+"%", height:"100%", background:"var(--success)", borderRadius:999}}></div>
+      </div>
+    </div>
+  );
+}
+
+function Today({ state, setState, profile, goals }){
   const { weight, calories, water, protein, steps, minutes, distanceKm } = state;
-  const kcalBurn = estimateActivityKcal({ weightKg: weight, distanceKm, minutes, steps });
+
+  const bmi = calcBMI(weight || profile?.startWeightKg, profile?.heightCm);
+  const kcalBurn = estimateActivityKcal({ weightKg: weight || profile?.startWeightKg, distanceKm, minutes, steps });
 
   return (
     <div className="screen">
       <h2>Heute</h2>
 
       <div className="card-group">
-        <NumberInput label="Gewicht (kg)" value={weight} onChange={(v)=> setState(s=>({...s, weight:v}))} />
-        <NumberInput label="Kalorien" value={calories} onChange={(v)=> setState(s=>({...s, calories:v}))} />
-        <NumberInput label="Wasser (ml)" value={water} onChange={(v)=> setState(s=>({...s, water:v}))} />
-        <NumberInput label="Protein (g)" value={protein} onChange={(v)=> setState(s=>({...s, protein:v}))} />
-        <NumberInput label="Schritte" value={steps} onChange={(v)=> setState(s=>({...s, steps:v}))} />
-        <NumberInput label="Minuten (Spazieren)" value={minutes} onChange={(v)=> setState(s=>({...s, minutes:v}))} />
-        <NumberInput label="Distanz (km)" value={distanceKm} onChange={(v)=> setState(s=>({...s, distanceKm:v}))} />
+        <NumberInput label="Gewicht (kg)" value={weight} placeholder="z. B. 88.9"
+          onChange={(v)=> setState(s=>({...s, weight:v}))} />
+
+        {/* Kalorien */}
+        <div className="card-input">
+          <label>Kalorien (heute)</label>
+          <input type="number" placeholder="z. B. 600" value={calories ?? ""} onChange={(e)=> setState(s=>({...s, calories:e.target.value}))} />
+          <div style={{display:"flex", gap:8, marginTop:8, flexWrap:"wrap"}}>
+            {[100,250,500].map(inc=>(
+              <button key={inc} className="btn" onClick={()=> setState(s=>({...s, calories:String((Number(s.calories)||0)+inc)}))}>+{inc}</button>
+            ))}
+            {Number(calories)>0 && (
+              <button className="btn" onClick={()=> setState(s=>({...s, calories:String(Math.max(0,(Number(s.calories)||0)-100))}))}>-100</button>
+            )}
+          </div>
+          <div style={{marginTop:10}}>
+            <ProgressBar value={Number(calories)||0} max={Number(goals?.dailyCalories)||0} unit="kcal" />
+          </div>
+        </div>
+
+        {/* Wasser */}
+        <div className="card-input">
+          <label>Wasser (ml)</label>
+          <input type="number" placeholder="z. B. 1500" value={water ?? ""} onChange={(e)=> setState(s=>({...s, water:e.target.value}))} />
+          <div style={{display:"flex", gap:8, marginTop:8, flexWrap:"wrap"}}>
+            {[250,500].map(inc=>(
+              <button key={inc} className="btn" onClick={()=> setState(s=>({...s, water:String((Number(s.water)||0)+inc)}))}>+{inc} ml</button>
+            ))}
+            {Number(water)>0 && (
+              <button className="btn" onClick={()=> setState(s=>({...s, water:String(Math.max(0,(Number(s.water)||0)-250))}))}>-250 ml</button>
+            )}
+          </div>
+          <div style={{marginTop:10}}>
+            <ProgressBar value={Number(water)||0} max={Number(goals?.dailyWaterMl)||0} unit="ml" />
+          </div>
+        </div>
+
+        {/* Protein */}
+        <div className="card-input">
+          <label>Protein (g)</label>
+          <input type="number" placeholder="z. B. 150" value={protein ?? ""} onChange={(e)=> setState(s=>({...s, protein:e.target.value}))} />
+          <div style={{display:"flex", gap:8, marginTop:8, flexWrap:"wrap"}}>
+            {[10,25,50].map(inc=>(
+              <button key={inc} className="btn" onClick={()=> setState(s=>({...s, protein:String((Number(s.protein)||0)+inc)}))}>+{inc} g</button>
+            ))}
+            {Number(protein)>0 && (
+              <button className="btn" onClick={()=> setState(s=>({...s, protein:String(Math.max(0,(Number(s.protein)||0)-10))}))}>-10 g</button>
+            )}
+          </div>
+          <div style={{marginTop:10}}>
+            <ProgressBar value={Number(protein)||0} max={Number(goals?.dailyProteinG)||0} unit="g" />
+          </div>
+        </div>
+
+        {/* Aktivität */}
+        <div className="card-input">
+          <label>Aktivität (Gehen/Spazieren)</label>
+          <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:8}}>
+            <input type="number" placeholder="Schritte" value={steps ?? ""} onChange={(e)=> setState(s=>({...s, steps:e.target.value}))} />
+            <input type="number" placeholder="Minuten" value={minutes ?? ""} onChange={(e)=> setState(s=>({...s, minutes:e.target.value}))} />
+            <input type="number" placeholder="km" value={distanceKm ?? ""} onChange={(e)=> setState(s=>({...s, distanceKm:e.target.value}))} />
+            <div style={{display:"flex", alignItems:"center"}} className="muted">Schätzung, basierend auf Gewicht & Eingaben.</div>
+          </div>
+          <div style={{marginTop:10}} className="muted">Verbrannt (≈): <strong>{kcalBurn}</strong> kcal</div>
+        </div>
       </div>
 
-      <div className="card-input" style={{marginTop:14}}>
-        <label>Verbrannte Kalorien (≈)</label>
-        <div style={{fontSize:22, fontWeight:700}}>
-          {kcalBurn} kcal
+      <div className="card-group" style={{marginTop:14}}>
+        <div className="card-input">
+          <label>BMI (heute)</label>
+          <div style={{display:"flex", alignItems:"baseline", gap:8}}>
+            <div style={{fontSize:26, fontWeight:700}}>{bmi ?? "—"}</div>
+            <div className="muted">{bmi ? (bmi < 18.5 ? 'Untergewicht' : bmi < 25 ? 'Normalgewicht' : bmi < 30 ? 'Übergewicht' : 'Adipositas') : "—"}</div>
+          </div>
+        </div>
+
+        <div className="card-input">
+          <label>Gewichts-Fortschritt</label>
+          <GoalProgress profile={profile} goals={goals} currentWeight={weight} />
         </div>
       </div>
     </div>
   );
 }
 
-/* ---------- Trends (aufklappbare Karten) ---------- */
+/* ---------- Trends (aufklappbare, sortierte Tageskarten mit formatiertem Datum) ---------- */
 function Trends(){
   const [expanded, setExpanded] = useState(new Set());
-  const days = loadAllDays();
+  const days = useMemo(()=> loadAllDaysSortedDesc(), []);
 
   const toggle = (date) => {
     setExpanded(prev => {
@@ -183,35 +336,56 @@ function Trends(){
     });
   };
 
+  if (days.length === 0) {
+    return (
+      <div className="screen">
+        <h2>Trends</h2>
+        <p className="muted">Noch keine Tagesdaten.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="screen">
       <h2>Trends</h2>
 
       {days.map(d => {
         const open = expanded.has(d.date);
-        const kcalBurn = estimateActivityKcal(d);
+        const kcalBurn = estimateActivityKcal({
+          weightKg: d.weight, distanceKm: d.distanceKm, minutes: d.minutes, steps: d.steps
+        });
+
         return (
           <div key={d.date} className="card-group" style={{marginTop:12}}>
             <div className="card-input card-collapsible">
-              <button className="collapsible-header" aria-expanded={open}
-                onClick={()=>toggle(d.date)}>
+              <button
+                className="collapsible-header"
+                aria-expanded={open}
+                aria-controls={`day-${d.date}`}
+                onClick={()=>toggle(d.date)}
+              >
                 <div className="collapsible-title trend-title">
-                  <div className="trend-date">{d.date}</div>
+                  <div className="trend-date">{formatDateDE(d.date)}</div>
                   <div className="trend-hint">Tippen für mehr Infos</div>
                 </div>
                 <span className={"chevron" + (open ? " rotate" : "")}>▾</span>
               </button>
 
-              <div className={"collapsible-body" + (open ? " open" : "")}>
+              <div
+                id={`day-${d.date}`}
+                className={"collapsible-body" + (open ? " open" : "")}
+                role="region"
+                aria-hidden={!open}
+              >
                 <div className="collapsible-grid">
-                  <div className="kv"><span className="k">Gewicht</span><span className="v">{d.weight || "—"} kg</span></div>
-                  <div className="kv"><span className="k">Kalorien</span><span className="v">{d.calories || "—"} kcal</span></div>
-                  <div className="kv"><span className="k">Wasser</span><span className="v">{d.water || "—"} ml</span></div>
-                  <div className="kv"><span className="k">Protein</span><span className="v">{d.protein || "—"} g</span></div>
+                  <div className="kv"><span className="k">Gewicht</span><span className="v">{d.weight ? `${d.weight} kg` : "—"}</span></div>
+                  <div className="kv"><span className="k">Kalorien</span><span className="v">{d.calories ? `${d.calories} kcal` : "—"}</span></div>
+                  <div className="kv"><span className="k">Wasser</span><span className="v">{d.water ? `${d.water} ml` : "—"}</span></div>
+                  <div className="kv"><span className="k">Protein</span><span className="v">{d.protein ? `${d.protein} g` : "—"}</span></div>
                   <div className="kv"><span className="k">Schritte</span><span className="v">{d.steps || 0}</span></div>
                   <div className="kv"><span className="k">Minuten</span><span className="v">{d.minutes || 0}</span></div>
-                  <div className="kv"><span className="k">Distanz</span><span className="v">{d.distanceKm || 0} km</span></div>
-                  <div className="kv"><span className="k">Verbrannt</span><span className="v">{kcalBurn} kcal</span></div>
+                  <div className="kv"><span className="k">Distanz</span><span className="v">{d.distanceKm ? `${d.distanceKm} km` : "0 km"}</span></div>
+                  <div className="kv"><span className="k">Verbrannt (≈)</span><span className="v">{kcalBurn} kcal</span></div>
                 </div>
               </div>
             </div>
@@ -228,10 +402,11 @@ function Goals({ profile, setProfile, goals, setGoals }){
     <div className="screen">
       <h2>Ziele</h2>
       <div className="card-group">
-        <TextInput label="Name" value={profile?.name} onChange={(v)=> setProfile(p=>({...p, name:v}))} />
-        <NumberInput label="Tägliche Kalorien (Ziel)" value={goals.dailyCalories} onChange={(v)=> setGoals(g=>({...g, dailyCalories:v}))} />
-        <NumberInput label="Wasser (ml, Ziel)" value={goals.dailyWaterMl} onChange={(v)=> setGoals(g=>({...g, dailyWaterMl:v}))} />
-        <NumberInput label="Protein (g, Ziel)" value={goals.dailyProteinG} onChange={(v)=> setGoals(g=>({...g, dailyProteinG:v}))} />
+        <TextInput   label="Name"                  value={profile?.name}        onChange={(v)=> setProfile(p=>({...p, name:v}))} />
+        <NumberInput label="Tägliche Kalorien"     value={goals.dailyCalories}  onChange={(v)=> setGoals(g=>({...g, dailyCalories:v}))} />
+        <NumberInput label="Tägliches Wasser (ml)" value={goals.dailyWaterMl}   onChange={(v)=> setGoals(g=>({...g, dailyWaterMl:v}))} />
+        <NumberInput label="Tägliches Protein (g)" value={goals.dailyProteinG}  onChange={(v)=> setGoals(g=>({...g, dailyProteinG:v}))} />
+        <NumberInput label="Zielgewicht (kg)"      value={goals.targetWeightKg} onChange={(v)=> setGoals(g=>({...g, targetWeightKg:v}))} />
       </div>
     </div>
   );
@@ -239,28 +414,66 @@ function Goals({ profile, setProfile, goals, setGoals }){
 
 /* ---------- App Install Screen ---------- */
 function Install(){
+  const ua = navigator.userAgent || navigator.vendor || window.opera;
+  const isiOS = /iPad|iPhone|iPod/.test(ua);
+  const isAndroid = /Android/.test(ua);
+  const isDesktop = !isiOS && !isAndroid;
+
   return (
     <div className="screen">
-      <h2>App installieren</h2>
-      <p className="muted">So fügst du LeanTrack zum Startbildschirm hinzu:</p>
-
-      <div className="card-group" style={{marginTop:12}}>
+      <h2>Als App installieren</h2>
+      <div className="card-group">
+        {isiOS && (
+          <div className="card-input">
+            <label>iOS (Safari)</label>
+            <ol style={{margin:"6px 0 0 18px"}}>
+              <li>Safari öffnen</li>
+              <li>Teilen-Icon (⬆️) tippen</li>
+              <li>„Zum Home-Bildschirm“ wählen</li>
+            </ol>
+          </div>
+        )}
+        {isAndroid && (
+          <div className="card-input">
+            <label>Android (Chrome/Brave)</label>
+            <ol style={{margin:"6px 0 0 18px"}}>
+              <li>Menü (⋮) tippen</li>
+              <li>„Zum Startbildschirm hinzufügen“</li>
+            </ol>
+          </div>
+        )}
+        {isDesktop && (
+          <div className="card-input">
+            <label>Desktop (Chrome/Edge)</label>
+            <ol style={{margin:"6px 0 0 18px"}}>
+              <li>Installations-Icon in der Adresszeile klicken</li>
+            </ol>
+          </div>
+        )}
         <div className="card-input">
-          <label>iOS (Safari)</label>
-          <ul style={{marginLeft:18}}>
-            <li>Teilen-Icon</li>
-            <li>„Zum Home-Bildschirm“</li>
-          </ul>
-        </div>
-        <div className="card-input">
-          <label>Android (Chrome/Brave)</label>
-          <ul style={{marginLeft:18}}>
-            <li>⋮ Menü öffnen</li>
-            <li>„Zum Startbildschirm hinzufügen“</li>
-          </ul>
+          <label>Hinweis</label>
+          <p className="muted">Die App funktioniert vollständig offline. Daten bleiben lokal auf deinem Gerät.</p>
         </div>
       </div>
     </div>
+  );
+}
+
+/* ---------- Splash ---------- */
+function SplashScreen({ name }){
+  return (
+    <div className="splash-fullscreen">
+      <h1>{greet()}, {name || "du"} 🎉</h1>
+    </div>
+  );
+}
+
+/* ---------- Theme Toggle (🌓) ---------- */
+function ThemeToggle(){
+  const [mode, setMode] = useState(getStoredTheme()==="dark" ? "dark" : "light");
+  useEffect(()=> applyTheme(mode), [mode]);
+  return (
+    <button className="theme-toggle" aria-label="Theme wechseln" onClick={()=> setMode(mode==="dark" ? "light" : "dark")}>🌓</button>
   );
 }
 
@@ -268,38 +481,65 @@ function Install(){
 function App(){
   const [tab, setTab] = useState("today");
 
+  // Theme beim Start setzen
+  useEffect(()=> { applyTheme(getStoredTheme()); }, []);
+
+  // Daten
   const [profile, setProfile] = useState(load(STORAGE.profile, null));
-  const [goals, setGoals] = useState(load(STORAGE.goals,{
-    dailyCalories: "2000", dailyWaterMl:"2000", dailyProteinG:"120"
+  const [goals, setGoals]     = useState(load(STORAGE.goals, {
+    dailyCalories:"2000", dailyWaterMl:"2000", dailyProteinG:"120", targetWeightKg:""
+  }));
+  const [state, setState]     = useState(load(STORAGE.day + todayISO(), {
+    weight:"", calories:"", water:"", protein:"", steps:"", minutes:"", distanceKm:""
   }));
 
-  const [state, setState] = useState(load(STORAGE.day + todayISO(), {
-    weight: '', calories:'', water:'', protein:'', steps:'', minutes:'', distanceKm:''
-  }));
-
+  // Persistenz
   useEffect(()=> save(STORAGE.profile, profile), [profile]);
-  useEffect(()=> save(STORAGE.goals, goals), [goals]);
+  useEffect(()=> save(STORAGE.goals, goals),     [goals]);
   useEffect(()=> save(STORAGE.day + todayISO(), state), [state]);
 
-  if (!profile) return <Onboarding onComplete={()=> setProfile(load(STORAGE.profile))} />;
+  // Onboarding
+  if (!profile || !profile.name || !profile.heightCm || !profile.startWeightKg) {
+    return <Onboarding initial={profile || {}} onComplete={()=> {
+      const p = load(STORAGE.profile, null);
+      setProfile(p);
+    }} />;
+  }
+
+  // Splash ab 2. Start
+  const [showSplash, setShowSplash] = useState(false);
+  useEffect(()=>{
+    const f = localStorage.getItem("lt_welcomed") || "0";
+    if (f === "0") localStorage.setItem("lt_welcomed","1");
+    else if (f === "1"){
+      setShowSplash(true);
+      localStorage.setItem("lt_welcomed","2");
+      setTimeout(()=> setShowSplash(false), 1400);
+    }
+  }, []);
 
   return (
     <div className="app-wrapper">
-      {tab === "today"  && <Today state={state} setState={setState} profile={profile} goals={goals} />}
-      {tab === "trends" && <Trends />}
-      {tab === "goals"  && <Goals profile={profile} setProfile={setProfile} goals={goals} setGoals={setGoals} />}
-      {tab === "install" && <Install />}
+      {showSplash ? (
+        <SplashScreen name={profile?.name} />
+      ) : (
+        <>
+          {tab==="today"   && <Today  state={state} setState={setState} profile={profile} goals={goals} /> }
+          {tab==="trends"  && <Trends /> }
+          {tab==="goals"   && <Goals  profile={profile} setProfile={setProfile} goals={goals} setGoals={setGoals} /> }
+          {tab==="install" && <Install /> }
 
-      <div className="bottom-nav">
-        <TabButton label="Heute" active={tab==="today"}  onClick={()=>setTab("today")} />
-        <TabButton label="Trends" active={tab==="trends"} onClick={()=>setTab("trends")} />
-        <TabButton label="Ziele" active={tab==="goals"}  onClick={()=>setTab("goals")} />
-        <TabButton label="App"   active={tab==="install"} onClick={()=>setTab("install")} />
-      </div>
+          <div className="bottom-nav">
+            <TabButton label="Heute"        active={tab==="today"}   onClick={()=>setTab("today")} />
+            <TabButton label="Trends"       active={tab==="trends"}  onClick={()=>setTab("trends")} />
+            <TabButton label="Ziele"        active={tab==="goals"}   onClick={()=>setTab("goals")} />
+            <TabButton label="Installieren" active={tab==="install"} onClick={()=>setTab("install")} />
+          </div>
+        </>
+      )}
+      <ThemeToggle />
     </div>
   );
 }
 
 ReactDOM.createRoot(document.getElementById("app")).render(<App />);
-
-/* Splash bleibt unverändert */
