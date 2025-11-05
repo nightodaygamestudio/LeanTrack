@@ -1002,10 +1002,18 @@ useEffect(() => {
           {tab === "goals"  && <Goals  profile={profile} setProfile={setProfile} goals={goals} setGoals={setGoals} t={t} units={units} />}
 
           <div className="bottom-nav">
-            <TabButton label={t('today')}  active={tab === "today"}  onClick={() => setTab("today")} />
-            <TabButton label={t('trends')} active={tab === "trends"} onClick={() => setTab("trends")} />
-            <TabButton label={t('goals')}  active={tab === "goals"}  onClick={() => setTab("goals")} />
-            <TabButton label="☰" active={false} onClick={() => setMenuOpen(true)} />
+            <div className="bottom-nav-inner">
+              <TabButton label={t('today')}  active={tab === "today"}  onClick={() => setTab("today")} />
+              <TabButton label={t('trends')} active={tab === "trends"} onClick={() => setTab("trends")} />
+              <TabButton label={t('goals')}  active={tab === "goals"}  onClick={() => setTab("goals")} />
+              <button
+                className="tab-btn menu-btn"
+                aria-label="Menü"
+                onClick={() => setMenuOpen(true)}
+              >
+                ☰
+              </button>
+            </div>
           </div>
 
           <MenuSheet
