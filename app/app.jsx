@@ -554,7 +554,7 @@ function Trends({ t, units }){
             </div>
             <span className={"chevron"+(open?" rotate":"")}>▾</span>
           </button>
-          <div id={`day-${d.date}`} className={"collapsible-body"+(open?" open":"")} role="region" aria-hidden={!open)}>
+          <div id={`day-${d.date}`} className={"collapsible-body"+(open?" open":"")} role="region" aria-hidden={!open}>
             <div className="collapsible-grid">
               <div className="kv"><span className="k">{t('weight')}</span><span className="v">{weightDisp}</span></div>
               <div className="kv"><span className="k">Kcal</span><span className="v">{d.calories ? `${d.calories} kcal` : "—"}</span></div>
