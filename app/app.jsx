@@ -141,6 +141,15 @@ function AppHeader({ title, onToggleTheme }){
   );
 }
 
+/* ---------- Helper: locale-sichere Zahl ---------- */
+function toNumberOrEmpty(v){
+  if (v == null) return '';
+  const s = String(v).replace(',', '.').trim();
+  if (s === '') return '';
+  const n = Number(s);
+  return Number.isFinite(n) ? s : '';
+}
+
 /* ---------- First Run (Language + Units) ---------- */
 function FirstRun({ lang, setLang, units, setUnits, t, onContinue, availableLangs }){
   return (
@@ -171,109 +180,205 @@ function FirstRun({ lang, setLang, units, setUnits, t, onContinue, availableLang
   );
 }
 
-/* ---------- Onboarding ---------- */
+/* ---------- Onboarding (robust & fail-safe) ---------- */
 function Onboarding({ initial, onComplete, t, units }){
-  const [name,setName]=useState(initial?.name||'');
-  const [age,setAge]=useState(initial?.age||'');
-  const [heightCm,setHeightCm]=useState(initial?.heightCm||'');
-  const [startWeightKg,setStartWeightKg]=useState(initial?.startWeightKg||'');
-  const [targetWeightKg,setTargetWeightKg]=useState(load(STORAGE.goals,{targetWeightKg:''})?.targetWeightKg||'');
+  const [name,setName]=React.useState(initial?.name||'');
+  const [age,setAge]=React.useState(initial?.age||'');
+  const [heightCm,setHeightCm]=React.useState(toNumberOrEmpty(initial?.heightCm)||'');
+  const [startWeightKg,setStartWeightKg]=React.useState(toNumberOrEmpty(initial?.startWeightKg)||'');
+  const [targetWeightKg,setTargetWeightKg]=React.useState(
+    toNumberOrEmpty(load(STORAGE.goals,{targetWeightKg:''})?.targetWeightKg)||''
+  );
 
-  const [ft, setFt] = useState(''); const [inch, setInch] = useState('');
-  useEffect(()=>{
+  // Nur bei imperial: getrennte Felder für ft/in
+  const [ft, setFt] = React.useState('');
+  const [inch, setInch] = React.useState('');
+
+  React.useEffect(()=>{
     if(units?.height==='ft'){
-      const cm = Number(heightCm)||0; const totalIn = cmToIn(cm);
-      const f = Math.floor(totalIn/12); const i = Math.round(totalIn - f*12);
-      setFt(f?String(f):''); setInch(i?String(i):'');
+      const cm = Number(heightCm)||0;
+      if (cm > 0) {
+        const totalIn = cmToIn(cm);
+        const f = Math.floor(totalIn/12);
+        const i = Math.round(totalIn - f*12);
+        setFt(f?String(f):''); setInch(i?String(i):'');
+      }
     }
   },[]);
 
-  const bmi=useMemo(()=>calcBMI(startWeightKg, heightCm),[startWeightKg,heightCm]);
-  const ready=name.trim() && (units.height==='cm' ? heightCm : (ft||inch)) && startWeightKg;
+  const ready = Boolean(
+    name.trim() &&
+    (
+      units.height==='cm'
+        ? toNumberOrEmpty(heightCm) !== ''
+        : (toNumberOrEmpty(ft) !== '' || toNumberOrEmpty(inch) !== '')
+    ) &&
+    toNumberOrEmpty(startWeightKg) !== ''
+  );
 
   const HeightInputs = units.height==='cm' ? (
-    <NumberInput label={`${t('height')} (${t('heightCm')})`} value={heightCm} onChange={setHeightCm} placeholder="180" />
+    <div className="card-input">
+      <label>{t('height')} ({t('heightCm')})</label>
+      <input
+        type="number" inputMode="decimal" placeholder="180"
+        value={heightCm}
+        onChange={(e)=> setHeightCm(toNumberOrEmpty(e.target.value))}
+      />
+    </div>
   ) : (
     <div className="card-input">
       <label>{t('height')} ({t('heightFt')}/{t('heightIn')})</label>
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8}}>
-        <input type="number" placeholder={t('heightFt')} value={ft} onChange={(e)=> setFt(e.target.value)} />
-        <input type="number" placeholder={t('heightIn')} value={inch} onChange={(e)=> setInch(e.target.value)} />
+        <input type="number" inputMode="numeric" placeholder={t('heightFt')}
+               value={ft} onChange={(e)=> setFt(toNumberOrEmpty(e.target.value))}/>
+        <input type="number" inputMode="numeric" placeholder={t('heightIn')}
+               value={inch} onChange={(e)=> setInch(toNumberOrEmpty(e.target.value))}/>
       </div>
     </div>
   );
 
   const WeightInput = (() => {
     const unit = units.weight==='kg'?t('weightUnitKg'):(units.weight==='lb'?t('weightUnitLb'):t('weightUnitSt'));
-    return <NumberInput label={`${t('startWeight')} (${unit})`} value={
-      (function(){
-        const kg = Number(startWeightKg)||0;
-        if(units.weight==='kg') return startWeightKg;
-        if(units.weight==='lb') return kg? String(Math.round(kgToLb(kg)*10)/10) : '';
-        if(units.weight==='st') return kg? String(Math.round(kgToSt(kg)*10)/10) : '';
-        return startWeightKg;
-      })()
-    } onChange={(v)=>{
-      const num = Number(v)||0;
-      if(units.weight==='kg') setStartWeightKg(v);
-      else if(units.weight==='lb') setStartWeightKg(String(Math.round(lbToKg(num)*10)/10));
-      else setStartWeightKg(String(Math.round(stToKg(num)*10)/10));
-    }} placeholder={units.weight==='kg'?'88.9':(units.weight==='lb'?'196':'13.5')} />
+    const display = (() => {
+      const kg = Number(startWeightKg)||0;
+      if(units.weight==='kg') return startWeightKg;
+      if(units.weight==='lb') return kg? String(Math.round(kgToLb(kg)*10)/10) : '';
+      if(units.weight==='st') return kg? String(Math.round(kgToSt(kg)*10)/10) : '';
+      return startWeightKg;
+    })();
+    return (
+      <div className="card-input">
+        <label>{t('startWeight')} ({unit})</label>
+        <input
+          type="number" inputMode="decimal" placeholder={units.weight==='kg'?'88.9':(units.weight==='lb'?'196':'13.5')}
+          value={display}
+          onChange={(e)=>{
+            const s = toNumberOrEmpty(e.target.value);
+            const num = Number(s)||0;
+            if(units.weight==='kg') setStartWeightKg(s);
+            else if(units.weight==='lb') setStartWeightKg(String(Math.round(lbToKg(num)*10)/10));
+            else setStartWeightKg(String(Math.round(stToKg(num)*10)/10));
+          }}
+        />
+      </div>
+    );
   })();
 
-  return (<div className="screen">
-    <h2>{t('onboardingTitle')}</h2>
-    <p className="muted">{t('onboardingNote')}</p>
-    <div className="card-group">
-      <TextInput label={t('name')} value={name} onChange={setName} placeholder="Max" />
-      <NumberInput label={t('age')} value={age} onChange={setAge} placeholder="30" />
-      {HeightInputs}
-      {WeightInput}
-      <NumberInput label={`${t('targetWeight')} (${units.weight==='kg'?t('weightUnitKg'):units.weight==='lb'?t('weightUnitLb'):t('weightUnitSt')})`} value={
-        (function(){
-          const kg = Number(targetWeightKg)||0;
-          if(units.weight==='kg') return targetWeightKg;
-          if(units.weight==='lb') return kg? String(Math.round(kgToLb(kg)*10)/10) : '';
-          if(units.weight==='st') return kg? String(Math.round(kgToSt(kg)*10)/10) : '';
-          return targetWeightKg;
-        })()
-      } onChange={(v)=>{
-        const num=Number(v)||0;
-        if(units.weight==='kg') setTargetWeightKg(v);
-        else if(units.weight==='lb') setTargetWeightKg(String(Math.round(lbToKg(num)*10)/10));
-        else setTargetWeightKg(String(Math.round(stToKg(num)*10)/10));
-      }} placeholder={units.weight==='kg'?'80':'176'} />
-    </div>
+  const handleDone = ()=>{
+    // 1) Höhe berechnen/validieren
+    let finalHeightCm = toNumberOrEmpty(heightCm);
+    if (units.height==='ft'){
+      const f = Number(toNumberOrEmpty(ft))||0;
+      const i = Number(toNumberOrEmpty(inch))||0;
+      const inches = f*12 + i;
+      if (inches > 0) {
+        const cm = inToCm(inches);
+        finalHeightCm = String(Math.round(cm*10)/10);
+      }
+    }
 
-    <div className="card-group" style={{marginTop:14}}>
-      <div className="card-input">
-        <label>{t('bmiToday')}</label>
-        <div style={{display:'flex', alignItems:'baseline', gap:8}}>
-          <div style={{fontSize:26, fontWeight:700}}>{bmi ?? '—'}</div>
-          <div className="muted"></div>
+    // 2) Pflichtfelder final prüfen
+    const nameOk = name.trim().length>0;
+    const heightOk = finalHeightCm !== '' && Number(finalHeightCm) > 0;
+    const weightOk = toNumberOrEmpty(startWeightKg) !== '' && Number(startWeightKg) > 0;
+    if (!nameOk || !heightOk || !weightOk) {
+      alert('Please complete name, height and start weight.');
+      return;
+    }
+
+    // 3) Persist
+    const profile = {
+      name: name.trim(),
+      age: toNumberOrEmpty(age),
+      heightCm: finalHeightCm,
+      startWeightKg: toNumberOrEmpty(startWeightKg)
+    };
+
+    const defaults = { dailyCalories:"2000", dailyWaterMl:"2000", dailyProteinG:"120", targetWeightKg: toNumberOrEmpty(targetWeightKg) };
+    const existing = load(STORAGE.goals, {});
+    const goals = Object.assign({}, defaults, existing, { targetWeightKg: toNumberOrEmpty(targetWeightKg) });
+
+    try {
+      save(STORAGE.profile, profile);
+      save(STORAGE.goals, goals);
+      localStorage.setItem(STORAGE.welcomed, '0');
+    } catch (e) {
+      console.error('Persist failed', e);
+    }
+
+    // 4) Weiter zur App (Callback + Fallback-Reload)
+    try {
+      onComplete({ profile, goals });
+      setTimeout(()=> {
+        if (document.querySelector('.screen h2')?.textContent === t('onboardingTitle')) {
+          window.location.replace('./');
+        }
+      }, 200);
+    } catch {
+      window.location.replace('./');
+    }
+  };
+
+  return (
+    <div className="screen">
+      <h2>{t('onboardingTitle')}</h2>
+      <p className="muted">{t('onboardingNote')}</p>
+      <div className="card-group">
+        <div className="card-input">
+          <label>{t('name')}</label>
+          <input type="text" placeholder="Max" value={name} onChange={(e)=> setName(e.target.value)} />
+        </div>
+
+        <div className="card-input">
+          <label>{t('age')}</label>
+          <input type="number" inputMode="numeric" placeholder="30" value={age} onChange={(e)=> setAge(toNumberOrEmpty(e.target.value))} />
+        </div>
+
+        {HeightInputs}
+        {WeightInput}
+
+        <div className="card-input">
+          <label>{t('targetWeight')} ({units.weight==='kg'?t('weightUnitKg'):t('weightUnitLb')})</label>
+          <input
+            type="number" inputMode="decimal" placeholder={units.weight==='kg'?'80':'176'}
+            value={(function(){
+              const kg = Number(targetWeightKg)||0;
+              if(units.weight==='kg') return targetWeightKg;
+              if(units.weight==='lb') return kg? String(Math.round(kgToLb(kg)*10)/10) : '';
+              if(units.weight==='st') return kg? String(Math.round(kgToSt(kg)*10)/10) : '';
+              return targetWeightKg;
+            })()}
+            onChange={(e)=>{
+              const s = toNumberOrEmpty(e.target.value);
+              const num=Number(s)||0;
+              if(units.weight==='kg') setTargetWeightKg(s);
+              else if(units.weight==='lb') setTargetWeightKg(String(Math.round(lbToKg(num)*10)/10));
+              else setTargetWeightKg(String(Math.round(stToKg(num)*10)/10));
+            }}
+          />
         </div>
       </div>
-    </div>
 
-    <button className="btn primary" disabled={!ready} style={{marginTop:20}}
-      onClick={()=>{
-        let finalHeightCm = heightCm;
-        if (units.height==='ft'){
-          const f = Number(ft)||0, i=Number(inch)||0;
-          const cm = inToCm(f*12 + i);
-          finalHeightCm = String(Math.round(cm*10)/10);
-        }
-        const profile = { name: name.trim(), age, heightCm: finalHeightCm, startWeightKg };
-        const defaults = { dailyCalories:"2000", dailyWaterMl:"2000", dailyProteinG:"120", targetWeightKg };
-        const goals = Object.assign(defaults, load(STORAGE.goals, {}));
-        goals.targetWeightKg = targetWeightKg;
-        save(STORAGE.profile, profile);
-        save(STORAGE.goals, goals);
-        setRaw(STORAGE.welcomed, "0");
-        onComplete({ profile, goals });
-      }}
-    >{t('done')}</button>
-  </div>);
+      <div className="card-group" style={{marginTop:14}}>
+        <div className="card-input">
+          <label>{t('bmiToday')}</label>
+          <div style={{display:'flex', alignItems:'baseline', gap:8}}>
+            <div style={{fontSize:26, fontWeight:700}}>
+              {(() => {
+                const bmi = calcBMI(Number(startWeightKg)||0, Number(units.height==='cm'?heightCm:(inToCm((Number(ft)||0)*12 + (Number(inch)||0))))||0);
+                return bmi ?? '—';
+              })()}
+            </div>
+            <div className="muted"></div>
+          </div>
+        </div>
+      </div>
+
+      <button className="btn primary" disabled={!ready} style={{marginTop:20}} onClick={handleDone}>
+        {t('done')}
+      </button>
+    </div>
+  );
 }
 
 /* ---------- Today (SI intern, Anzeige je Unit) ---------- */
@@ -449,7 +554,7 @@ function Trends({ t, units }){
             </div>
             <span className={"chevron"+(open?" rotate":"")}>▾</span>
           </button>
-          <div id={`day-${d.date}`} className={"collapsible-body"+(open?" open":"")} role="region" aria-hidden={!open}>
+          <div id={`day-${d.date}`} className={"collapsible-body"+(open?" open":"")} role="region" aria-hidden={!open)}>
             <div className="collapsible-grid">
               <div className="kv"><span className="k">{t('weight')}</span><span className="v">{weightDisp}</span></div>
               <div className="kv"><span className="k">Kcal</span><span className="v">{d.calories ? `${d.calories} kcal` : "—"}</span></div>
@@ -790,6 +895,15 @@ function App(){
   useEffect(()=> save(STORAGE.profile,profile),[profile]);
   useEffect(()=> save(STORAGE.goals,goals),[goals]);
   useEffect(()=> save(STORAGE.day + currentDate,state),[state,currentDate]);
+
+  // Automatische Gewichtshistorie (optional, falls benötigt):
+  useEffect(()=>{
+    if (!state.weight) return;
+    const date = currentDate;
+    const list = load('lt_weight_hist', []);
+    const updated = [...list.filter(x=>x.date!==date), { date, value: state.weight }];
+    save('lt_weight_hist', updated);
+  }, [state.weight, currentDate]);
 
   // Tageswechsel (am Gerätestichtag)
   useEffect(()=>{
