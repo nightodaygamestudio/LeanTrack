@@ -848,15 +848,16 @@ function SplashScreen({ name }){
 /* ---------- Root ---------- */
 const EMPTY_DAY={ weight:"", calories:"", water:"", protein:"", steps:"", minutes:"", distanceKm:"" };
 
-function App(){
-  useEffect(()=>{ applyTheme(getStoredTheme()); }, []);
+function App() {
 
-  // i18n – Strings & verfügbare Sprachen (ohne ESM)
+  useEffect(() => { applyTheme(getStoredTheme()); }, []);
+
+  // i18n – Strings & verfügbare Sprachen
   const [availableLangs, setAvailableLangs] = useState([]);
   const [strings, setStrings] = useState(null);
   const [lang, _setLang] = useState(load(STORAGE.lang, null));
   const [units, _setUnits] = useState(load(STORAGE.units, null));
-  const t = useCallback((key)=> (strings && strings[key]) || key, [strings]);
+  const t = useCallback((key) => (strings && strings[key]) || key, [strings]);
 
   useEffect(() => {
     let cancelled = false;
@@ -882,109 +883,135 @@ function App(){
     return () => { cancelled = true; };
   }, [lang]);
 
-  const setLang = (code)=>{ _setLang(code); save(STORAGE.lang, code); };
-  const setUnits = (u)=>{ _setUnits(u); save(STORAGE.units, u); };
+  const setLang = (code) => { _setLang(code); save(STORAGE.lang, code); };
+  const setUnits = (u) => { _setUnits(u); save(STORAGE.units, u); };
 
-  const [tab,setTab]=useState("today");
-  const [currentDate,setCurrentDate]=useState(todayISO());
-  const [profile,setProfile]=useState(load(STORAGE.profile,null));
-  const [goals,setGoals]=useState(load(STORAGE.goals,{ dailyCalories:"2000", dailyWaterMl:"2000", dailyProteinG:"120", targetWeightKg:"" }));
-  const [state,setState]=useState(load(STORAGE.day + currentDate, {...EMPTY_DAY}));
+  // App State
+  const [tab, setTab] = useState("today");
+  const [currentDate, setCurrentDate] = useState(todayISO());
+  const [profile, setProfile] = useState(load(STORAGE.profile, null));
+  const [goals, setGoals] = useState(load(STORAGE.goals, { dailyCalories: "2000", dailyWaterMl: "2000", dailyProteinG: "120", targetWeightKg: "" }));
+  const [state, setState] = useState(load(STORAGE.day + currentDate, { ...EMPTY_DAY }));
 
   // Persistenz
-  useEffect(()=> save(STORAGE.profile,profile),[profile]);
-  useEffect(()=> save(STORAGE.goals,goals),[goals]);
-  useEffect(()=> save(STORAGE.day + currentDate,state),[state,currentDate]);
+  useEffect(() => save(STORAGE.profile, profile), [profile]);
+  useEffect(() => save(STORAGE.goals, goals), [goals]);
+  useEffect(() => save(STORAGE.day + currentDate, state), [state, currentDate]);
 
-  // Automatische Gewichtshistorie (optional, falls benötigt):
-  useEffect(()=>{
+  // Gewichtshistorie automatisch aktualisieren
+  useEffect(() => {
     if (!state.weight) return;
     const date = currentDate;
     const list = load('lt_weight_hist', []);
-    const updated = [...list.filter(x=>x.date!==date), { date, value: state.weight }];
+    const updated = [...list.filter(x => x.date !== date), { date, value: state.weight }];
     save('lt_weight_hist', updated);
   }, [state.weight, currentDate]);
 
-  // Tageswechsel (am Gerätestichtag)
-  useEffect(()=>{
-    const id=setInterval(()=>{
-      const tISO=todayISO();
-      if(tISO!==currentDate){
+  // Tageswechsel erkennen
+  useEffect(() => {
+    const id = setInterval(() => {
+      const tISO = todayISO();
+      if (tISO !== currentDate) {
         setCurrentDate(tISO);
-        setState(load(STORAGE.day + tISO, {...EMPTY_DAY}));
+        setState(load(STORAGE.day + tISO, { ...EMPTY_DAY }));
       }
     }, 60000);
-    return ()=> clearInterval(id);
+    return () => clearInterval(id);
   }, [currentDate]);
 
-  // First-Run
-  if (!strings) return <div className="screen"><div className="muted">Loading…</div></div>;
-  if (!lang || !units){
-    return (
-      <FirstRun
-        lang={lang||'en'} setLang={setLang}
-        units={units||DEFAULT_UNITS} setUnits={setUnits}
-        t={t} availableLangs={availableLangs}
-        onContinue={()=> { if(!lang) setLang('en'); if(!units) setUnits(DEFAULT_UNITS); }}
-      />
-    );
-  }
 
-  // Onboarding
-  if(!profile || !profile.name || !profile.heightCm || !profile.startWeightKg){
-    return (
-      <Onboarding
-        initial={profile||{}}
-        onComplete={({ profile: p, goals: g })=>{
-          setProfile(p); setGoals(g);
-          const tISO=todayISO(); setCurrentDate(tISO); setState(load(STORAGE.day + tISO, {...EMPTY_DAY}));
-          setTab("today");
-        }}
-        t={t} units={units}
-      />
-    );
-  }
+  // ✅ Hooks, die vorher falsch positioniert waren → jetzt korrekt oberhalb aller Returns
 
-  // Splash: ab zweitem Start
-  const [showSplash,setShowSplash]=useState(false);
-  useEffect(()=>{
-    const f=getRaw(STORAGE.welcomed)||"0";
-    if(f==="0") setRaw(STORAGE.welcomed,"1");
-    else if(f==="1"){
-      setShowSplash(true); setRaw(STORAGE.welcomed,"2");
-      const to=setTimeout(()=> setShowSplash(false), 1400);
-      return ()=> clearTimeout(to);
+  // Splash: ab dem zweiten App-Start
+  const [showSplash, setShowSplash] = useState(false);
+  useEffect(() => {
+    const f = getRaw(STORAGE.welcomed) || "0";
+    if (f === "0") setRaw(STORAGE.welcomed, "1");
+    else if (f === "1") {
+      setShowSplash(true);
+      setRaw(STORAGE.welcomed, "2");
+      const to = setTimeout(() => setShowSplash(false), 1400);
+      return () => clearTimeout(to);
     }
   }, []);
 
-  const toggleTheme=()=>{ const cur=getStoredTheme(); applyTheme(cur==='dark'?'light':'dark'); };
-
-  // Menü-Sheet
+  // Menü-Sheet (☰)
   const [menuOpen, setMenuOpen] = useState(false);
 
+
+  // === Early Returns ===
+
+  if (!strings)
+    return <div className="screen"><div className="muted">Loading…</div></div>;
+
+  if (!lang || !units)
+    return (
+      <FirstRun
+        lang={lang || 'en'}
+        setLang={setLang}
+        units={units || DEFAULT_UNITS}
+        setUnits={setUnits}
+        t={t}
+        availableLangs={availableLangs}
+        onContinue={() => {
+          if (!lang) setLang('en');
+          if (!units) setUnits(DEFAULT_UNITS);
+        }}
+      />
+    );
+
+  if (!profile || !profile.name || !profile.heightCm || !profile.startWeightKg)
+    return (
+      <Onboarding
+        initial={profile || {}}
+        onComplete={({ profile: p, goals: g }) => {
+          setProfile(p);
+          setGoals(g);
+          const tISO = todayISO();
+          setCurrentDate(tISO);
+          setState(load(STORAGE.day + tISO, { ...EMPTY_DAY }));
+          setTab("today");
+        }}
+        t={t}
+        units={units}
+      />
+    );
+
+  // Toggle Theme (hell/dunkel)
+  const toggleTheme = () => {
+    const cur = getStoredTheme();
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
+  };
+
+
+  // === Main UI ===
   return (
     <div className="app-wrapper">
       <AppHeader title={t('appTitle')} onToggleTheme={toggleTheme} />
+
       {showSplash ? (
-        <SplashScreen name={profile?.name}/>
+        <SplashScreen name={profile?.name} />
       ) : (
         <>
-          {tab==="today"  && <Today  state={state} setState={setState} profile={profile} goals={goals} t={t} units={units}/> }
-          {tab==="trends" && <Trends t={t} units={units}/> }
-          {tab==="goals"  && <Goals  profile={profile} setProfile={setProfile} goals={goals} setGoals={setGoals} t={t} units={units}/> }
+          {tab === "today"  && <Today  state={state} setState={setState} profile={profile} goals={goals} setGoals={setGoals} t={t} units={units} />}
+          {tab === "trends" && <Trends t={t} units={units} />}
+          {tab === "goals"  && <Goals  profile={profile} setProfile={setProfile} goals={goals} setGoals={setGoals} t={t} units={units} />}
 
-          {/* Bottom-Nav: Heute | Trends | Ziele | Menü (☰) */}
           <div className="bottom-nav">
-            <TabButton label={t('today')}  active={tab==="today"}  onClick={()=>setTab("today")}/>
-            <TabButton label={t('trends')} active={tab==="trends"} onClick={()=>setTab("trends")}/>
-            <TabButton label={t('goals')}  active={tab==="goals"}   onClick={()=>setTab("goals")}/>
-            <TabButton label="☰"           active={false}           onClick={()=> setMenuOpen(true)}/>
+            <TabButton label={t('today')}  active={tab === "today"}  onClick={() => setTab("today")} />
+            <TabButton label={t('trends')} active={tab === "trends"} onClick={() => setTab("trends")} />
+            <TabButton label={t('goals')}  active={tab === "goals"}  onClick={() => setTab("goals")} />
+            <TabButton label="☰" active={false} onClick={() => setMenuOpen(true)} />
           </div>
 
           <MenuSheet
-            open={menuOpen} onClose={()=> setMenuOpen(false)}
-            t={t} lang={lang} setLang={setLang}
-            units={units} setUnits={setUnits}
+            open={menuOpen}
+            onClose={() => setMenuOpen(false)}
+            t={t}
+            lang={lang}
+            setLang={setLang}
+            units={units}
+            setUnits={setUnits}
             availableLangs={availableLangs}
           />
         </>
