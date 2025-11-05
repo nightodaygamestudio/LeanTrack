@@ -85,17 +85,4 @@
   "continue": "Continue",
 
   "hintEst": "Estimate based on your weight & inputs.",
-
-  "lp.tagline": "Open Source • PWA • 100% local",
-  "lp.h1": "Track it. Improve it.",
-  "lp.subtitle": "A minimalist fitness app for people who want results: weight, calories, water, protein. Offline. No account. On every device.",
-  "lp.feature.pwa.t": "Installable PWA",
-  "lp.feature.pwa.d": "Home screen icon, full-screen, offline — like a native app, without a store.",
-  "lp.feature.local.t": "100% local",
-  "lp.feature.local.d": "Your data stays on your device. Export/Import via JSON — full control.",
-  "lp.feature.trends.t": "Trends & Goals",
-  "lp.feature.trends.d": "Weight trends and daily goals for calories, water and protein.",
-  "lp.cta.label": "Ready to track progress?",
-  "lp.cta.open": "Open Web App",
-  "lp.footer.made": "Made with ❤️ by JJampion."
 }
