@@ -1,5 +1,5 @@
 // PWA Service Worker für LeanTrack
-const CACHE_NAME = "leantrack-cache-v29";
+const CACHE_NAME = "leantrack-cache-v30";
 
 const ASSETS_TO_CACHE = [
   "./",
