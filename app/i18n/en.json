@@ -38,7 +38,7 @@
   "dailyProtein": "Daily protein (goal)",
 
   "onboardingTitle": "Welcome to LeanTrack",
-  "onboardingNote": "Enter base data once. You can change it later in \"Goals\".",
+  "onboardingNote": "Enter your base data once. You can adjust it later under “Goals”.",
   "done": "Done",
 
   "trendsHint": "Tap for more info",
@@ -51,13 +51,13 @@
   "menuUnits": "Units",
   "close": "Close",
 
-  "installTitle": "Install to Home Screen",
-  "androidSteps": ["Open Chrome/Brave", "Menu (⋮)", "Add to Home screen"],
+  "installTitle": "Add to Home Screen",
+  "androidSteps": ["Open Chrome/Brave", "Menu (⋮)", "Add to Home Screen"],
   "iosSteps": ["Open Safari", "Share (⬆️)", "Add to Home Screen"],
-  "desktopSteps": ["Open Chrome/Edge", "Click install icon in the address bar"],
+  "desktopSteps": ["Open Chrome/Edge", "Click the install icon in the address bar"],
 
   "reminderTitle": "Create reminder (ICS)",
-  "reminderWhat": "What is it for?",
+  "reminderWhat": "What is this reminder for?",
   "reminderWhen": "Time",
   "reminderDays": "Repeat",
   "reminderDaily": "Daily",
@@ -74,7 +74,7 @@
   "dataTitle": "Data",
   "exportAll": "Export all data (.json)",
   "importAll": "Import data (.json)",
-  "imported": "Imported.",
+  "imported": "Import completed.",
 
   "firstrunTitle": "Quick setup",
   "chooseLanguage": "Choose language",
@@ -84,5 +84,18 @@
   "unitsUK": "UK (st, ft/in, ml, mi)",
   "continue": "Continue",
 
-  "hintEst": "Estimate based on your weight & inputs.",
+  "hintEst": "Estimate based on your inputs.",
+
+  "lp.tagline": "Open Source • PWA • 100% local",
+  "lp.h1": "Track it. Improve it.",
+  "lp.subtitle": "A minimalist fitness app for people who want results: weight, calories, water, protein. Offline. No account. Works on any device.",
+  "lp.feature.pwa.t": "Installable PWA",
+  "lp.feature.pwa.d": "Home screen icon, fullscreen, offline — like a native app, without the store.",
+  "lp.feature.local.t": "100% local",
+  "lp.feature.local.d": "Your data stays on your device. Export/import via JSON — full control.",
+  "lp.feature.trends.t": "Trends & goals",
+  "lp.feature.trends.d": "Weight trend plus daily goals for calories, water and protein.",
+  "lp.cta.label": "Ready to track progress?",
+  "lp.cta.open": "Open Web App",
+  "lp.footer.made": "Made with ❤️ by JJampion."
 }
