@@ -922,18 +922,22 @@ function App() {
 
   // ✅ Hooks, die vorher falsch positioniert waren → jetzt korrekt oberhalb aller Returns
 
-  // Splash: ab dem zweiten App-Start
-  const [showSplash, setShowSplash] = useState(false);
-  useEffect(() => {
-    const f = getRaw(STORAGE.welcomed) || "0";
-    if (f === "0") setRaw(STORAGE.welcomed, "1");
-    else if (f === "1") {
-      setShowSplash(true);
-      setRaw(STORAGE.welcomed, "2");
-      const to = setTimeout(() => setShowSplash(false), 1400);
-      return () => clearTimeout(to);
-    }
-  }, []);
+// Splash: ab dem zweiten App-Start  (muss VOR den Early-Returns stehen)
+const [showSplash, setShowSplash] = useState(false);
+useEffect(() => {
+  let to = null;
+
+  const f = getRaw(STORAGE.welcomed) || "0";
+  if (f === "0") {
+    setRaw(STORAGE.welcomed, "1");
+  } else if (f === "1") {
+    setShowSplash(true);
+    setRaw(STORAGE.welcomed, "2");
+    to = setTimeout(() => setShowSplash(false), 1400);
+  }
+
+  return () => { if (to) clearTimeout(to); };
+}, []);
 
   // Menü-Sheet (☰)
   const [menuOpen, setMenuOpen] = useState(false);
